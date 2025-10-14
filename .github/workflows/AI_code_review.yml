@@ -1,0 +1,49 @@
+name: Smart AI Review
+
+# Has permissions to read code and post comments
+permissions:
+  pull-requests: write
+  contents: read
+
+# Upon these types of pull requests
+on:
+  pull-request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  # Run script on the latest Ubuntu version (VM)
+  run-review-script:
+    runs-on: ubuntu-latest
+    # With read and write permissions
+    permissions:
+      pull-requests: write
+      contents: read
+
+    # Various steps to complete running script
+    steps:
+      # For loading repo code into the VM
+    - name: Load in Code
+      uses: actions/checkout@v4
+
+      # For setting up python v3.12 in the VM
+    - name: Setup Python Version
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+
+      # Installs the needed dependencies for running script to the VM
+    - name: Install Necessary Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install openai PyGithub
+
+      # Runs the script with all necessary env variables
+    - name: Run AI Review Script
+      run: python Scripts/write_review.py
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        REPO_NAME: ${{ github.repository }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+
+      
