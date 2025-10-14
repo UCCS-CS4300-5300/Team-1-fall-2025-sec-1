@@ -32,7 +32,7 @@ jobs:
 
       # Sets up Django settings to include environment
     - name: Set Django settings
-      run: echo "DJANGO_SETTINGS_MODULE=GroupThink.settings" >> $GITHUB_ENV 
+      run: echo "DJANGO_SETTINGS_MODULE=GroupThink.GroupThink.settings" >> $GITHUB_ENV 
 
       # Run the tests in Django
     - name: Run tests with coverage
