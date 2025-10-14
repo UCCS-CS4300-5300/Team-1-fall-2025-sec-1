@@ -41,8 +41,8 @@ jobs:
             pytest --cov=. --cov-report=term --cov-report=xml:coverage.xml --cov-fail-under=80
 
         # Posts Nice looking metrics to Pull Requests
-      # - name: Post coverage comment in Pull Request
-      #   uses: MishaKav/pytest-coverage-comment@v1
-      #   with:
-      #     github-token: ${{ secrets.GITHUB_TOKEN }}
-      #     pytest-xml-coverage-path: coverage.xml
+      - name: Post coverage comment in Pull Request
+        uses: MishaKav/pytest-coverage-comment@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          pytest-xml-coverage-path: coverage.xml
