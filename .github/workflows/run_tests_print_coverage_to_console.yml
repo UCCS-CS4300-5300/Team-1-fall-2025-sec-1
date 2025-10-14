@@ -2,7 +2,7 @@ name: Automatically run tests and print coverage to console
 
 # Workflow runs if a push or pull-request
 on:
-  pull-request:
+  pull_request:
     types: [opened, synchronize, reopened]
   push:
     branches: [main, meeting-integration]
