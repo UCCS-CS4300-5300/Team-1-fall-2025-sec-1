@@ -5,7 +5,7 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
   push:
-    branches: [main, meeting-integration]
+    branches: [main, meeting_integration]
 
 jobs:
   # Job that runs tests and prints metrics to console
