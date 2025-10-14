@@ -38,7 +38,7 @@ jobs:
       - name: Run tests with coverage
         working-directory: GroupThink
         run: |
-            pytest --cov=. --cov-report=term --cov-report=xml:coverage.xml --cov-fail-under=80
+            pytest -v --ds=GroupThink.settings --cov=. --cov-report=term --cov-report=xml:coverage.xml --cov-fail-under=80
 
         # Posts Nice looking metrics to Pull Requests
       - name: Post coverage comment in Pull Request
