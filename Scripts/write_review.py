@@ -30,6 +30,7 @@ def get_pull_request(repo, pull_request_number):
         raise ValueError(f"An error occurred getting the pull request: {e}")
 
 def get_files_from_pull_request(pull_request):
+    """This gets the diff of the Pull Request for AI to review"""
     try:
         info = ""
         for file in pull_request.get_files():
