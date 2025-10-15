@@ -1,5 +1,5 @@
 import os
-from openai import OpenAI
+import openai
 from github import Github
 
 def get_github_instance(github_token):
