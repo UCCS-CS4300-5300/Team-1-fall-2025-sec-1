@@ -2,15 +2,18 @@ name: Automatically run tests and print coverage to console
 
 # Workflow runs if a push or pull-request
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
   push:
     branches: [main, meeting_integration]
+  pull_request:
+    branches: [main]
 
 jobs:
   # Job that runs tests and prints metrics to console
   run-test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
 
     # Various steps required
     steps:
@@ -42,6 +45,7 @@ jobs:
 
         # Posts Nice looking metrics to Pull Requests
       - name: Post coverage comment in Pull Request
+        if: github.event_name == 'pull_request'
         uses: MishaKav/pytest-coverage-comment@v1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
