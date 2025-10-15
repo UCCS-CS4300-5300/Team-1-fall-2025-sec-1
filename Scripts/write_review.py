@@ -96,7 +96,7 @@ def main():
 
     files_and_info = get_files_from_pull_request(pull_request)
 
-    pr.create_issue_comment(f"Code Review\n\n{get_AI_review(files_and_info)}")
+    pull_request.create_issue_comment(f"Code Review\n\n{get_AI_review(files_and_info)}")
 
 
 if __name__ == '__main__':
