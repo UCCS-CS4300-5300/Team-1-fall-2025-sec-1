@@ -92,7 +92,7 @@ def main():
 
     github_instance = get_github_instance(github_token)
     repo_instance = get_repo(github_instance, repo_name)
-    pull_request = get_pull_request(repo_instance, pr_number)
+    pull_request = get_pull_request(repo_instance, pull_request_number)
 
     files_and_info = get_files_from_pull_request(pull_request)
 
