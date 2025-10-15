@@ -2,7 +2,7 @@ name: Smart AI Review
 
 # Has permissions to read code and post comments
 permissions:
-  pull_requests: write
+  pull-requests: write
   contents: read
 
 # Upon these types of pull requests
@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     # With read and write permissions
     permissions:
-      pull_requests: write
+      pull-requests: write
       contents: read
 
     # Various steps to complete running script
