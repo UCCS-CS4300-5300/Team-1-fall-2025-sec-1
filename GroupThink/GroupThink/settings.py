@@ -31,6 +31,10 @@ ALLOWED_HOSTS = [
     '127.0.0.1'
 ]
 
+CSRF_TRUSTED_ORIGINS = [
+    "https://app-brackencontainer-19.devedu.io"
+]
+
 
 # Application definition
 
