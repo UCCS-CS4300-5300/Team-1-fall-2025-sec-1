@@ -85,7 +85,7 @@ def main():
 
         pull_request_number = int(os.getenv("PR_NUMBER"))
         # If unable to acquire pull request number, raise error
-        if not pr_number:
+        if not pull_request_number:
             raise ValueError('No Repo Name Token')
     except Exception as e:
         raise ValueError(f"An error occurred: {e}")
