@@ -99,6 +99,6 @@ def main():
 
     pull_request.create_issue_comment(f"Code Review\n\n{get_AI_review(files_and_info)}")
 
-
+# Runs main
 if __name__ == '__main__':
     main()
