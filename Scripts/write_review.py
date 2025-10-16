@@ -45,7 +45,7 @@ def get_AI_review(info_and_files):
 
     # Generates response with OpenAI review as contents based on diff
     response = openai.chat.completions.create(
-        model="gpt-4o",
+        model="gpt-5",
         messages=[
             {"role": "system", "content": "You are an expert code reviewer."},
             {"role": "user", "content": f"""
