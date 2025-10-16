@@ -4,8 +4,6 @@ name: Automatically run tests and print coverage to console
 on:
   push:
     branches: [main, meeting_integration]
-  pull_request:
-    branches: [main]
 
 jobs:
   # Job that runs tests and prints metrics to console
