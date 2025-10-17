@@ -1,13 +1,13 @@
 from django.test import TestCase
 import jwt
 from unittest.mock import patch
-from .jaas_functions import generate_jaas_token
+from home.jaas_functions import generate_jaas_token
 
 class JaasFunctionTests(TestCase):
     """For testing various functions required for JaaS (Jitsi as a Service)"""
 
-    @patch("yourmodule.jwt.encode")
-    @patch("yourmodule.time.time", return_value=1000000)
+    @patch("home.jaas_functions.jwt.encode")
+    @patch("home.jaas_functions.time.time", return_value=1000000)
     @patch.dict("os.environ", {
         "JAAS_APP_ID": "test_app_id",
         "JAAS_API_KEY": "fake_private_key",
