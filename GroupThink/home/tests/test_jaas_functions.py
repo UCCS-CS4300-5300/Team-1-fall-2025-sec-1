@@ -4,7 +4,7 @@ from unittest.mock import patch
 from GroupThink.jaas_functions import generate_jaas_token
 
 class JaasFunctionTests(TestCase):
-"""For testing various functions required for JaaS (Jitsi as a Service)"""
+    """For testing various functions required for JaaS (Jitsi as a Service)"""
 
     @patch("yourmodule.jwt.encode")
     @patch("yourmodule.time.time", return_value=1000000)
