@@ -1,7 +1,7 @@
 from django.test import TestCase
 import jwt
 from unittest.mock import patch
-from GroupThink.jaas_functions import generate_jaas_token
+from .jaas_functions import generate_jaas_token
 
 class JaasFunctionTests(TestCase):
     """For testing various functions required for JaaS (Jitsi as a Service)"""
