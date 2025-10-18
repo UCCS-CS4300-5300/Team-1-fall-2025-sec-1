@@ -1,6 +1,4 @@
-# GroupThink — Quick Run & Test
-
-Minimal instructions to run the app and run the test suite.
+# GroupThink
 
 1) Install dependencies
 
@@ -25,10 +23,42 @@ coverage run -m pytest -q
 coverage report -m
 ```
 
-If you want only the total coverage line:
+Environment variables (JaaS / Jitsi)
 
-```powershell
-coverage report -m | Select-String 'TOTAL'
+This project uses JaaS for video meetings. To generate server-side JWTs the app expects these environment variables to be set:
+
+- `JAAS_APP_ID` - your JaaS Application ID
+- `JAAS_API_KEY` - the RSA private key used to sign JWTs (PEM format)
+- `JAAS_API_KEY_ID` - the API key id (kid) provided by JaaS
+
+For local development create a `.env` file in the project root (it's already in `.gitignore`). Example `.env` contents:
+
+```
+JAAS_APP_ID=your-app-id
+JAAS_API_KEY="-----BEGIN PRIVATE KEY-----\nMIIEvgIBADAN...\n-----END PRIVATE KEY-----"
+JAAS_API_KEY_ID=your-key-id
 ```
 
-That's it — this README intentionally keeps only the bare commands needed to run and test the project.
+Notes:
+- Keep `.env` out of version control. If your PEM file contains newlines you can either escape them with `\n` inside the `.env` value or load the key into the environment at runtime (for example: `export JAAS_API_KEY="$(cat /path/to/key.pem)"`).
+- On GitHub set repository secrets named `JAAS_APP_ID`, `JAAS_API_KEY` and `JAAS_API_KEY_ID` so workflows can access them.
+
+Committing & pushing (quick reminder)
+
+```bash
+# create a branch for the sprint
+git checkout -b sprint1
+
+# stage and commit
+git add -A
+git commit -m "Sprint 1: features, tests, docs"
+
+# add remote (replace <your> values) and push main or your branch
+git remote add origin https://github.com/<your-username>/<repo-name>.git
+git branch -M main
+git push -u origin main
+# or push branch
+git push -u origin sprint1
+```
+
+If you'd like, paste the output after you run the commit commands and the remote URL (or tell me whether you prefer HTTPS vs SSH) and I'll give exact push commands and verify.
