@@ -39,6 +39,7 @@ jobs:
 
         # Run the tests in Django
       - name: Run tests with coverage
+      working-directory: ./GroupThink
         run: |
             pytest --cov=. --cov-report=term-missing --cov-report=xml:coverage.xml --cov-fail-under=80
 
