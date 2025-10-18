@@ -11,16 +11,37 @@
     <!-- Top Nav -->
   <nav class="nav-wrap">
     <div class="nav">
-      <div class="brand">GROUPTHINK</div>
+      <a href="{% url 'index' %}" class="brand" style="text-decoration: none; color: inherit;">GROUPTHINK</a>
       <ul class="links">
-        <li><a href="#">Dashboard</a></li>
-        <li><a href="#">My Tasks</a></li>
+        {% if user.is_authenticated %}
+        <li><a href="{% url 'dashboard' %}">Dashboard</a></li>
+        <li><a href="{% url 'my_tasks' %}">My Tasks</a></li>
         <li><a href="{% url 'create_meeting' %}">Meetings</a></li>
+        {% endif %}
       </ul>
-      <a class="btn btn-login" href="#">Login</a>
+      {% if user.is_authenticated %}
+      <div style="margin-left: auto; display: flex; align-items: center; gap: 16px;">
+        <span style="color: #fff; font-weight: 600;">{{ user.profile.display_name }}</span>
+        <a class="btn btn-login" href="{% url 'logout' %}">Logout</a>
+      </div>
+      {% else %}
+      <a class="btn btn-login" href="{% url 'login' %}">Login</a>
+      {% endif %}
     </div>
   </nav>
+
+  <!-- Messages -->
+  {% if messages %}
+  <div class="messages-container">
+    {% for message in messages %}
+    <div class="message message-{{ message.tags }}">
+      {{ message }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
     {% block content %}
-    
+
     {% endblock %}
 </body>

@@ -2,17 +2,38 @@
 {% block title %}Create Meeting{% endblock %}
 
 {% block content %}
-<main class="hero">
-    <div class="hero-inner">
-        <h1 class="headline">
-        CREATE MEETING
-        </h1>
-        <form method="POST">
+<main class="auth-container">
+    <div class="auth-box">
+        <h1 class="auth-title">Create Meeting</h1>
+        <p class="auth-subtitle">Start a new video meeting for your team</p>
+
+        <form method="POST" class="auth-form">
             {% csrf_token %}
 
-            <input type="text" name="title" placeholder="Meeting title" required> <br>
-            <button class="btn btn-primary" type="submit">Create</button>
+            <div class="form-group">
+                <label for="title">Meeting Title</label>
+                <input type="text" name="title" id="title" class="form-control" placeholder="e.g., Sprint Planning" required>
+            </div>
+
+            {% if workspaces %}
+            <div class="form-group">
+                <label for="workspace">Team (Optional)</label>
+                <select name="workspace" id="workspace" class="form-control">
+                    <option value="">-- No Team (Personal Meeting) --</option>
+                    {% for workspace in workspaces %}
+                    <option value="{{ workspace.id }}">{{ workspace.name }}</option>
+                    {% endfor %}
+                </select>
+                <small class="form-text">Select a team to organize this meeting</small>
+            </div>
+            {% endif %}
+
+            <button class="btn btn-submit" type="submit">Create Meeting</button>
         </form>
+
+        <div class="auth-footer">
+            <p><a href="{% url 'dashboard' %}">Back to Dashboard</a></p>
+        </div>
     </div>
 </main>
 

@@ -1,16 +1,60 @@
 {% extends 'home/base.html' %}
-{% block title %}Create Meeting{% endblock %}
+{% block title %}{{ meeting.title }} - GroupThink{% endblock %}
 
 {% block content %}
 <main style="display: flex; flex-direction: column; justify-content: flex-start; align-items: center; min-height: 100vh; padding-top: 40px; gap: 24px;">
-    <h2 class="meeting-title">{{ meeting.title }}</h2>
+        <div style="display: flex; align-items: center; gap: 20px; width: 900px; justify-content: space-between;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                        <h2 class="meeting-title" style="margin: 0;">{{ meeting.title }}</h2>
+                        {% if meeting.status == 'live' %}
+                                <span class="badge" style="background: #e53e3e; color: white; font-size: 14px; padding: 6px 12px;">● LIVE</span>
+                        {% endif %}
+                        <button id="members-btn" class="btn btn-small" style="margin-left: 16px; background: #2563eb; color: white;">Members</button>
+                </div>
+                <a href="{% url 'dashboard' %}" class="btn btn-secondary" style="text-decoration: none;">Exit to Dashboard</a>
+        </div>
+
+        <!-- Members Modal -->
+        <div id="members-modal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.4); z-index:1000; align-items:center; justify-content:center;">
+            <div style="background:white; border-radius:10px; padding:32px 24px; min-width:320px; max-width:90vw; box-shadow:0 4px 24px rgba(0,0,0,0.18); position:relative;">
+                <button id="close-members-modal" style="position:absolute; top:12px; right:12px; background:none; border:none; font-size:22px; cursor:pointer;">&times;</button>
+                <h3 style="margin-top:0;">Team Members</h3>
+                <ul style="list-style:none; padding:0; margin:0 0 16px 0;">
+                    {% for member in meeting.members.all %}
+                        <li style="padding:4px 0;">{{ member.display_name|default:member.username }}</li>
+                    {% empty %}
+                        <li>No members found.</li>
+                    {% endfor %}
+                </ul>
+                {% if user.is_staff or meeting.created_by == user %}
+                <div style="margin-top:12px;">
+                    <strong>Invite Code:</strong> <span style="font-family:monospace; background:#f3f3f3; padding:2px 6px; border-radius:4px;">{{ meeting.invite_code }}</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
 
     <div id="jitsi-container" style="width: 900px; height: 600px; border-radius: 10px; overflow: hidden; box-shadow: 0 0 10px rgba(0,0,0,0.3);"></div>
 
+    <!-- Meeting Controls (for creators/admins) -->
+    {% if meeting.created_by == user or user.is_staff %}
+    <div style="display: flex; gap: 10px;">
+        <form method="post" action="{% url 'update_meeting_status' meeting.id %}" style="margin: 0;" id="mark-live-form">
+            {% csrf_token %}
+            <input type="hidden" name="status" value="live">
+            <input type="hidden" name="stay_on_page" value="1">
+            <button type="submit" class="btn btn-small" style="background: #22c55e; color: white;">Mark as Live</button>
+        </form>
+        <form method="post" action="{% url 'update_meeting_status' meeting.id %}" style="margin: 0;" id="end-meeting-form">
+            {% csrf_token %}
+            <input type="hidden" name="status" value="ended">
+            <button type="submit" class="btn btn-small" style="background: #e53e3e; color: white;">End Meeting</button>
+        </form>
+    </div>
+    {% endif %}
 
     <script src='https://8x8.vc/{{ app_id }}/external_api.js'></script>
     <script>
-
         const domain = '8x8.vc';
         const options = {
             roomName: '{{ room_name }}',
@@ -23,6 +67,37 @@
 
         const api = new JitsiMeetExternalAPI(domain, options);
 
+        // When user closes the meeting, redirect to dashboard
+        api.addListener('readyToClose', function() {
+            window.location.href = '{% url "dashboard" %}';
+        });
+
+        // Handle Mark as Live - reload page to show LIVE badge
+        document.getElementById('mark-live-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            fetch(this.action, {
+                method: 'POST',
+                body: new FormData(this),
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            }).then(() => {
+                // Reload the page to show the LIVE badge
+                window.location.reload();
+            });
+        });
+
+        // Members modal logic
+        const membersBtn = document.getElementById('members-btn');
+        const membersModal = document.getElementById('members-modal');
+        const closeMembersModal = document.getElementById('close-members-modal');
+        if (membersBtn && membersModal && closeMembersModal) {
+          membersBtn.onclick = () => { membersModal.style.display = 'flex'; };
+          closeMembersModal.onclick = () => { membersModal.style.display = 'none'; };
+          membersModal.onclick = (e) => { if (e.target === membersModal) membersModal.style.display = 'none'; };
+        }
+
+        // End Meeting redirects to dashboard (default form behavior)
     </script>
 </main>
 
