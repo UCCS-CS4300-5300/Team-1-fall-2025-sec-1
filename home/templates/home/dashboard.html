@@ -1,0 +1,78 @@
+{% extends 'home/base.html' %}
+{% block title %}Dashboard - GroupThink{% endblock %}
+
+{% block content %}
+<main class="dashboard-container">
+  <div class="dashboard-header">
+    <h1>Welcome, {{ user_profile.display_name }}!</h1>
+    <div class="dashboard-actions">
+      <a href="{% url 'create_workspace' %}" class="btn btn-primary">Create Team</a>
+      <a href="{% url 'join_workspace' %}" class="btn btn-secondary">Join Team</a>
+    </div>
+  </div>
+
+  <!-- Teams Section -->
+  <section class="workspaces-section">
+    <h2>Your Teams</h2>
+
+    {% if workspaces %}
+    <div class="workspace-grid">
+      {% for workspace in workspaces %}
+      <div class="workspace-card">
+        <div class="workspace-card-header">
+          <h3>{{ workspace.name }}</h3>
+          {% if workspace in owned_workspaces %}
+          <span class="badge badge-owner">Owner</span>
+          {% endif %}
+        </div>
+
+        <!-- Team Progress Bar -->
+        <div style="margin: 12px 0;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <span style="font-size: 13px; color: #666;">Team Progress</span>
+            <span style="font-size: 13px; font-weight: 600; color: #3b82f6;">{{ workspace.get_task_completion_percentage }}%</span>
+          </div>
+          <div style="width: 100%; height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden;">
+            <div style="width: {{ workspace.get_task_completion_percentage }}%; height: 100%; background: linear-gradient(90deg, #3b82f6, #2563eb); transition: width 0.3s ease;"></div>
+          </div>
+          <p style="font-size: 12px; color: #999; margin: 4px 0 0 0;">
+            {{ workspace.completed_tasks }}/{{ workspace.total_tasks }} task{{ workspace.total_tasks|pluralize }} done
+          </p>
+        </div>
+
+        <p class="workspace-info">
+          {{ workspace.memberships.count }} member{{ workspace.memberships.count|pluralize }}
+        </p>
+        <p class="workspace-info">
+          {{ workspace.meetings.count }} meeting{{ workspace.meetings.count|pluralize }}
+        </p>
+        <a href="{% url 'workspace_detail' workspace.id %}" class="btn btn-small">View Team</a>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <p>You haven't joined any teams yet.</p>
+      <p>Create a new team or join one using an invite code!</p>
+    </div>
+    {% endif %}
+  </section>
+
+  <!-- Quick Actions -->
+  <section class="quick-actions">
+    <h2>Quick Actions</h2>
+    <div class="action-buttons">
+      <a href="{% url 'my_tasks' %}" class="action-card">
+        <div class="action-icon">📋</div>
+        <h3>My Tasks</h3>
+        <p>{{ pending_tasks_count }} pending task{{ pending_tasks_count|pluralize }}</p>
+      </a>
+      <a href="{% url 'create_meeting' %}" class="action-card">
+        <div class="action-icon">📹</div>
+        <h3>Start Meeting</h3>
+        <p>Create a new video meeting</p>
+      </a>
+    </div>
+  </section>
+</main>
+{% endblock %}

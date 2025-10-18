@@ -1,0 +1,30 @@
+{% extends 'home/base.html' %}
+{% block title %}Join Workspace - GroupThink{% endblock %}
+
+{% block content %}
+<main class="auth-container">
+  <div class="auth-box">
+    <h1 class="auth-title">Join Workspace</h1>
+    <p class="auth-subtitle">Enter an invite code to join a team workspace</p>
+
+    <form method="post" class="auth-form">
+      {% csrf_token %}
+
+      <div class="form-group">
+        <label for="{{ form.invite_code.id_for_label }}">Invite Code</label>
+        {{ form.invite_code }}
+        {% if form.invite_code.errors %}
+        <div class="field-error">{{ form.invite_code.errors.0 }}</div>
+        {% endif %}
+        <small class="form-text">Ask your team admin for the workspace invite code</small>
+      </div>
+
+      <button type="submit" class="btn btn-submit">Join Workspace</button>
+    </form>
+
+    <div class="auth-footer">
+      <p><a href="{% url 'dashboard' %}">Back to Dashboard</a></p>
+    </div>
+  </div>
+</main>
+{% endblock %}

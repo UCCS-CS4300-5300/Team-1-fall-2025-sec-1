@@ -1,0 +1,272 @@
+{% extends 'home/base.html' %}
+{% block title %}{{ workspace.name }} - GroupThink{% endblock %}
+
+{% block content %}
+<main class="dashboard-container">
+  <!-- Team Header -->
+  <div class="workspace-detail-header">
+    <div>
+      <h1>{{ workspace.name }}</h1>
+      <p class="workspace-meta">
+        Created by {{ workspace.created_by.profile.display_name }} on {{ workspace.created_at|date:"M d, Y" }}
+      </p>
+    </div>
+    <div class="workspace-actions">
+      {% if membership.role == 'admin' %}
+      <span class="badge badge-owner">Admin</span>
+      {% endif %}
+      <a href="{% url 'create_meeting' %}" class="btn btn-primary">New Meeting</a>
+    </div>
+  </div>
+
+  <!-- Invite code and controls moved to Members modal (see Members button) -->
+
+  <!-- Members Button + Modal -->
+  <section class="workspace-section">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <h2>Team</h2>
+      <div>
+        <button id="members-btn" class="btn btn-small">Members ({{ members.count }})</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Team Tasks Section -->
+  <section class="workspace-section">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+      <div>
+        <h2 style="margin: 0;">Team Tasks</h2>
+        <div style="display: flex; align-items: center; gap: 12px; margin-top: 8px;">
+          <div style="width: 200px; height: 20px; background: #e5e7eb; border-radius: 10px; overflow: hidden;">
+            <div style="width: {{ workspace.get_task_completion_percentage }}%; height: 100%; background: linear-gradient(90deg, #3b82f6, #2563eb); transition: width 0.3s ease;"></div>
+          </div>
+          <span style="font-size: 14px; color: #666;">{{ workspace.get_task_completion_percentage }}% Complete</span>
+        </div>
+      </div>
+      {% if membership.role == 'admin' %}
+      <a href="{% url 'create_task' workspace.id %}" class="btn btn-small btn-primary">+ Add Task</a>
+      {% endif %}
+    </div>
+
+    {% if workspace.tasks.all %}
+    <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px;">
+      {% for task in workspace.tasks.all %}
+      <div class="workspace-card" style="display: flex; justify-content: space-between; align-items: center;">
+        <div style="flex: 1;">
+          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+            <h3 style="margin: 0; font-size: 16px;">{{ task.title }}</h3>
+            {% if task.status == 'todo' %}
+              <span class="badge" style="background: #f59e0b; color: white;">To Do</span>
+            {% elif task.status == 'in_progress' %}
+              <span class="badge" style="background: #3b82f6; color: white;">In Progress</span>
+            {% else %}
+              <span class="badge" style="background: #22c55e; color: white;">Done</span>
+            {% endif %}
+          </div>
+          {% if task.description %}
+            <p style="color: #666; margin: 0 0 4px 0; font-size: 14px;">{{ task.description }}</p>
+          {% endif %}
+          <p style="color: #666; margin: 0; font-size: 13px;">
+            {% if task.assigned_to %}
+              Assigned to: {{ task.assigned_to.profile.display_name }}
+            {% else %}
+              Unassigned
+            {% endif %}
+            | Created by: {{ task.created_by.profile.display_name }}
+          </p>
+          {% if task.due_date %}
+            <p style="color: #666; margin: 4px 0 0 0; font-size: 13px;">Due: {{ task.due_date|date:"M d, Y" }}</p>
+          {% endif %}
+        </div>
+        <div style="display: flex; gap: 8px;">
+          {% if task.assigned_to == user and task.status != 'done' %}
+            <form method="post" action="{% url 'update_task_status' task.id %}" style="margin: 0;">
+              {% csrf_token %}
+              {% if task.status == 'todo' %}
+                <input type="hidden" name="status" value="in_progress">
+                <button type="submit" class="btn btn-small" style="background: #3b82f6; color: white;">Start</button>
+              {% else %}
+                <input type="hidden" name="status" value="done">
+                <button type="submit" class="btn btn-small" style="background: #22c55e; color: white;">Complete</button>
+              {% endif %}
+            </form>
+          {% endif %}
+          {% if membership.role == 'admin' or task.created_by == user %}
+            <form method="post" action="{% url 'delete_task' task.id %}" style="margin: 0;" onsubmit="return confirm('Are you sure you want to delete this task?');">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-small" style="background: #e53e3e; color: white;">Delete</button>
+            </form>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- My Team Tasks Subsection -->
+    {% with my_team_tasks=workspace.tasks.all|dictsort:"assigned_to" %}
+      {% if my_team_tasks %}
+        <h3 style="margin-bottom: 12px;">My Team Tasks</h3>
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          {% for task in my_team_tasks %}
+            {% if task.assigned_to == user %}
+            <div class="workspace-card" style="background: #f0f9ff; border-left: 4px solid #3b82f6;">
+              <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                <h4 style="margin: 0; font-size: 15px;">{{ task.title }}</h4>
+                {% if task.status == 'todo' %}
+                  <span class="badge" style="background: #f59e0b; color: white; font-size: 12px;">To Do</span>
+                {% elif task.status == 'in_progress' %}
+                  <span class="badge" style="background: #3b82f6; color: white; font-size: 12px;">In Progress</span>
+                {% else %}
+                  <span class="badge" style="background: #22c55e; color: white; font-size: 12px;">Done</span>
+                {% endif %}
+              </div>
+              {% if task.description %}
+                <p style="color: #666; margin: 0; font-size: 14px;">{{ task.description }}</p>
+              {% endif %}
+            </div>
+            {% endif %}
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    {% else %}
+    <div class="empty-state">
+      <p>No tasks yet. {% if membership.role == 'admin' %}Click "+ Add Task" to create one!{% else %}Admins can create tasks for the team.{% endif %}</p>
+    </div>
+    {% endif %}
+  </section>
+
+  <!-- Meetings Section -->
+  <section class="workspace-section">
+    <h2>Team Meetings ({{ meetings.count }})</h2>
+    {% if meetings %}
+    <div class="meetings-list">
+      {% for meeting in meetings %}
+      <div class="meeting-item">
+        <div style="flex: 1;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <h3 style="margin: 0;">{{ meeting.title }}</h3>
+            {% if meeting.status == 'live' %}
+              <span class="badge" style="background: #e53e3e; color: white;">● LIVE</span>
+            {% elif meeting.status == 'ended' %}
+              <span class="badge" style="background: #22c55e; color: white;">Ended</span>
+            {% else %}
+              <span class="badge" style="background: #f59e0b; color: white;">Not Started</span>
+            {% endif %}
+          </div>
+          <p class="meeting-meta">
+            Created by {{ meeting.created_by.profile.display_name }} on {{ meeting.created_at|date:"M d, Y g:i A" }}
+          </p>
+          {% if meeting.status == 'ended' and meeting.recording_url %}
+          <a href="{{ meeting.recording_url }}" target="_blank" style="font-size: 14px; color: var(--brand);">📥 Download Recording</a>
+          {% endif %}
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <button onclick="copyMeetingLink('{{ meeting.room_name }}')" class="btn btn-small btn-secondary">Copy Link</button>
+          {% if meeting.status != 'ended' %}
+          <a href="{% url 'join_meeting' meeting.room_name %}" class="btn btn-small">Join</a>
+          {% endif %}
+          {% if membership.role == 'admin' or meeting.created_by == user %}
+          <form method="post" action="{% url 'delete_meeting' meeting.id %}" style="margin: 0;">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-small" style="background: #e53e3e; color: white;" onclick="return confirm('Delete this meeting?')">Delete</button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <p>No meetings yet. Create one to get started!</p>
+    </div>
+    {% endif %}
+  </section>
+
+  <div class="workspace-footer">
+    <a href="{% url 'dashboard' %}" class="btn btn-secondary">Back to Dashboard</a>
+  </div>
+</main>
+
+<script>
+function copyInviteCode(code) {
+  navigator.clipboard.writeText(code).then(function() {
+    alert('Invite code copied to clipboard!');
+  });
+}
+
+function copyMeetingLink(roomName) {
+  const link = window.location.origin + '/join_meeting/' + roomName + '/';
+  navigator.clipboard.writeText(link).then(function() {
+    alert('Meeting link copied to clipboard!');
+  });
+}
+</script>
+
+<!-- Members Modal Markup -->
+<div id="members-modal" class="modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); align-items:center; justify-content:center; z-index:40;">
+  <div class="modal-content" style="background:#fff; padding:20px; max-width:600px; width:90%; border-radius:8px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <h3 style="margin:0;">Team Members ({{ members.count }})</h3>
+      <button id="members-close" class="btn btn-small">Close</button>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:10px; max-height:50vh; overflow:auto;">
+      {% for member in members %}
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:8px; border-radius:6px; background:#f9fafb;">
+        <div>
+          <div style="font-weight:700;">{{ member.user.profile.display_name }}</div>
+          <div style="color:#666; font-size:13px;">@{{ member.user.username }}</div>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <span class="badge {% if member.role == 'admin' %}badge-owner{% else %}badge-member{% endif %}">{{ member.role|title }}</span>
+          {% if membership.role == 'admin' and member.user != workspace.created_by %}
+          <form method="post" action="{% url 'remove_member' workspace.id member.user.id %}" style="margin:0;">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-small" style="background:#e53e3e; color:white;" onclick="return confirm('Remove {{ member.user.profile.display_name }} from this team?')">Remove</button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div style="margin-top:16px;">
+      <h4 style="margin:0 0 8px 0;">Invite Code</h4>
+      {% if membership.role == 'admin' or workspace.code_visible_to_members %}
+      <div style="display:flex; gap:8px; align-items:center;">
+        <code style="padding:6px 10px; background:#f3f4f6; border-radius:6px;">{{ workspace.invite_code }}</code>
+        <button class="btn btn-small" onclick="copyInviteCode('{{ workspace.invite_code }}')">Copy</button>
+      </div>
+      {% else %}
+      <p style="color:#666; margin:0;">Invite code is visible to admins only.</p>
+      {% endif %}
+
+      {% if membership.role == 'admin' %}
+      <div style="margin-top:12px;">
+        <form method="post" action="{% url 'toggle_code_visibility' workspace.id %}">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-small btn-secondary">
+            {% if workspace.code_visible_to_members %}
+              Hide Code from Members
+            {% else %}
+              Show Code to All Members
+            {% endif %}
+          </button>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<script>
+document.getElementById('members-btn').addEventListener('click', function() {
+  document.getElementById('members-modal').style.display = 'flex';
+});
+document.getElementById('members-close').addEventListener('click', function() {
+  document.getElementById('members-modal').style.display = 'none';
+});
+</script>
+{% endblock %}

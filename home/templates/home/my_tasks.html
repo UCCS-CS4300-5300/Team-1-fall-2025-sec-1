@@ -1,0 +1,141 @@
+{% extends 'home/base.html' %}
+{% block title %}My Tasks - GroupThink{% endblock %}
+
+{% block content %}
+<main class="dashboard-container">
+  <div class="dashboard-header">
+    <h1>My Tasks</h1>
+    <a href="{% url 'dashboard' %}" class="btn btn-secondary">Back to Dashboard</a>
+  </div>
+
+  <!-- Progress Bar -->
+  <section style="margin-bottom: 32px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+      <h3 style="margin: 0;">Overall Progress</h3>
+      <span style="font-size: 14px; color: #666;">{{ completed_tasks }}/{{ total_tasks }} tasks completed</span>
+    </div>
+    <div style="width: 100%; height: 24px; background: #e5e7eb; border-radius: 12px; overflow: hidden;">
+      <div style="width: {{ progress_percentage }}%; height: 100%; background: linear-gradient(90deg, #3b82f6, #2563eb); transition: width 0.3s ease;"></div>
+    </div>
+    <p style="margin-top: 8px; font-size: 14px; color: #666;">{{ progress_percentage }}% Complete</p>
+  </section>
+
+  <!-- Status Filter -->
+  <section style="margin-bottom: 24px;">
+    <div style="display: flex; gap: 12px;">
+      <a href="{% url 'my_tasks' %}" class="btn btn-small {% if status_filter == 'all' %}btn-primary{% else %}btn-secondary{% endif %}">All Tasks</a>
+      <a href="{% url 'my_tasks' %}?status=todo" class="btn btn-small {% if status_filter == 'todo' %}btn-primary{% else %}btn-secondary{% endif %}">To Do</a>
+      <a href="{% url 'my_tasks' %}?status=in_progress" class="btn btn-small {% if status_filter == 'in_progress' %}btn-primary{% else %}btn-secondary{% endif %}">In Progress</a>
+      <a href="{% url 'my_tasks' %}?status=done" class="btn btn-small {% if status_filter == 'done' %}btn-primary{% else %}btn-secondary{% endif %}">Done</a>
+    </div>
+  </section>
+
+  {% if all_tasks %}
+    <!-- Personal Tasks -->
+    {% if personal_tasks %}
+    <section style="margin-bottom: 32px;">
+      <h2 style="margin-bottom: 16px;">Personal Tasks</h2>
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        {% for task in personal_tasks %}
+        <div class="workspace-card" style="display: flex; justify-content: space-between; align-items: center;">
+          <div style="flex: 1;">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+              <h3 style="margin: 0;">{{ task.title }}</h3>
+              {% if task.status == 'todo' %}
+                <span class="badge" style="background: #f59e0b; color: white;">To Do</span>
+              {% elif task.status == 'in_progress' %}
+                <span class="badge" style="background: #3b82f6; color: white;">In Progress</span>
+              {% else %}
+                <span class="badge" style="background: #22c55e; color: white;">Done</span>
+              {% endif %}
+            </div>
+            {% if task.description %}
+              <p style="color: #666; margin: 0; font-size: 14px;">{{ task.description }}</p>
+            {% endif %}
+            {% if task.due_date %}
+              <p style="color: #666; margin: 4px 0 0 0; font-size: 13px;">Due: {{ task.due_date|date:"M d, Y" }}</p>
+            {% endif %}
+          </div>
+          <div style="display: flex; gap: 8px;">
+            {% if task.status != 'done' %}
+              <form method="post" action="{% url 'update_task_status' task.id %}" style="margin: 0;">
+                {% csrf_token %}
+                {% if task.status == 'todo' %}
+                  <input type="hidden" name="status" value="in_progress">
+                  <button type="submit" class="btn btn-small" style="background: #3b82f6; color: white;">Start</button>
+                {% else %}
+                  <input type="hidden" name="status" value="done">
+                  <button type="submit" class="btn btn-small" style="background: #22c55e; color: white;">Complete</button>
+                {% endif %}
+              </form>
+            {% endif %}
+            <form method="post" action="{% url 'delete_task' task.id %}" style="margin: 0;" onsubmit="return confirm('Are you sure you want to delete this task?');">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-small" style="background: #e53e3e; color: white;">Delete</button>
+            </form>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+
+    <!-- Team Tasks -->
+    {% if team_tasks %}
+    <section>
+      <h2 style="margin-bottom: 16px;">Team Tasks</h2>
+      {% for team_name, tasks in team_tasks.items %}
+      <div style="margin-bottom: 24px;">
+        <h3 style="margin-bottom: 12px; color: #3b82f6;">{{ team_name }}</h3>
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          {% for task in tasks %}
+          <div class="workspace-card" style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="flex: 1;">
+              <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                <h3 style="margin: 0; font-size: 16px;">{{ task.title }}</h3>
+                {% if task.status == 'todo' %}
+                  <span class="badge" style="background: #f59e0b; color: white;">To Do</span>
+                {% elif task.status == 'in_progress' %}
+                  <span class="badge" style="background: #3b82f6; color: white;">In Progress</span>
+                {% else %}
+                  <span class="badge" style="background: #22c55e; color: white;">Done</span>
+                {% endif %}
+              </div>
+              {% if task.description %}
+                <p style="color: #666; margin: 0; font-size: 14px;">{{ task.description }}</p>
+              {% endif %}
+              <p style="color: #666; margin: 4px 0 0 0; font-size: 13px;">Created by: {{ task.created_by.profile.display_name }}</p>
+              {% if task.due_date %}
+                <p style="color: #666; margin: 4px 0 0 0; font-size: 13px;">Due: {{ task.due_date|date:"M d, Y" }}</p>
+              {% endif %}
+            </div>
+            <div style="display: flex; gap: 8px;">
+              {% if task.status != 'done' %}
+                <form method="post" action="{% url 'update_task_status' task.id %}" style="margin: 0;">
+                  {% csrf_token %}
+                  {% if task.status == 'todo' %}
+                    <input type="hidden" name="status" value="in_progress">
+                    <button type="submit" class="btn btn-small" style="background: #3b82f6; color: white;">Start</button>
+                  {% else %}
+                    <input type="hidden" name="status" value="done">
+                    <button type="submit" class="btn btn-small" style="background: #22c55e; color: white;">Complete</button>
+                  {% endif %}
+                </form>
+              {% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    </section>
+    {% endif %}
+
+  {% else %}
+    <div class="empty-state">
+      <p>You don't have any tasks assigned yet.</p>
+      <p>Tasks assigned to you will appear here!</p>
+    </div>
+  {% endif %}
+</main>
+{% endblock %}

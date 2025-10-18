@@ -1,0 +1,60 @@
+{% extends 'home/base.html' %}
+{% block title %}Create Task - GroupThink{% endblock %}
+
+{% block content %}
+<main class="form-container">
+  <div class="form-header">
+    <h1>Create Task for {{ workspace.name }}</h1>
+  </div>
+
+  <form method="post" class="auth-form">
+    {% csrf_token %}
+
+    <div class="form-group">
+      <label for="id_title">Task Title *</label>
+      {{ form.title }}
+      {% if form.title.errors %}
+        <div class="error-message">{{ form.title.errors.0 }}</div>
+      {% endif %}
+    </div>
+
+    <div class="form-group">
+      <label for="id_description">Description</label>
+      {{ form.description }}
+      {% if form.description.errors %}
+        <div class="error-message">{{ form.description.errors.0 }}</div>
+      {% endif %}
+    </div>
+
+    <div class="form-group">
+      <label for="id_assigned_to">Assign To</label>
+      {{ form.assigned_to }}
+      {% if form.assigned_to.errors %}
+        <div class="error-message">{{ form.assigned_to.errors.0 }}</div>
+      {% endif %}
+      <small style="color: #666;">Leave unassigned if you want to assign it later</small>
+    </div>
+
+    <div class="form-group">
+      <label for="id_due_date">Due Date</label>
+      {{ form.due_date }}
+      {% if form.due_date.errors %}
+        <div class="error-message">{{ form.due_date.errors.0 }}</div>
+      {% endif %}
+    </div>
+
+    <div class="form-group" style="display: flex; align-items: center; gap: 8px;">
+      {{ form.is_personal }}
+      <label for="id_is_personal" style="margin: 0;">{{ form.is_personal.label }}</label>
+      {% if form.is_personal.errors %}
+        <div class="error-message">{{ form.is_personal.errors.0 }}</div>
+      {% endif %}
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">Create Task</button>
+      <a href="{% url 'workspace_detail' workspace.id %}" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
+</main>
+{% endblock %}
