@@ -1,0 +1,89 @@
+/* ---- Base / tokens ---- */
+:root{
+  --bg: #ffffff;
+  --text: #0e1420;
+  --muted: #4a5568;
+  --brand: #0a4fb5;      /* navbar blue */
+  --brand-dark: #073a87;
+  --ringA: #d9d9d9;      /* grey ring */
+  --ringB: #dfeaf8;      /* light blue ring */
+}
+*{ box-sizing:border-box; }
+html,body{ height:100%; }
+body{
+  margin:0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif;
+  color:var(--text);
+  background:var(--bg);
+}
+
+/* ---- Nav ---- */
+.nav-wrap{
+  position:sticky; top:0; z-index:10;
+  padding:12px 18px;
+}
+.nav{
+  max-width:1200px; margin:0 auto;
+  background:var(--brand);
+  color:#fff;
+  display:flex; align-items:center; gap:28px;
+  padding:18px 22px;
+  border-radius:999px;
+  box-shadow:0 6px 20px rgba(10,79,181,.25), inset 0 0 0 2px #5b7de7;
+}
+.brand{
+  font-weight:900; letter-spacing:.5px; font-size:28px;
+}
+.links{
+  display:flex; align-items:center; gap:42px;
+  list-style:none; margin:0; padding:0;
+}
+.links a{
+  text-decoration:none; color:#fff; font-weight:800; text-transform:uppercase;
+  letter-spacing:.6px;
+}
+.links a:hover{ text-decoration:underline; }
+
+.btn{
+  display:inline-flex; align-items:center; justify-content:center;
+  padding:12px 26px; border-radius:999px; text-decoration:none;
+  font-weight:700; border:2px solid #000; transition:transform .08s ease;
+  background:#fff; color:#111;
+}
+.btn:active{ transform:translateY(1px); }
+.btn-login{ margin-left:auto; }
+
+/* ---- Hero ---- */
+.hero{
+  position:relative;
+  overflow:hidden;
+  min-height:72vh;
+  display:grid; place-items:center;
+  padding:56px 18px 120px;
+}
+.hero-inner{
+  position:relative; z-index:2;
+  text-align:center; max-width:720px;
+}
+.headline{
+  margin:0 0 10px 0;
+  font-size:44px; line-height:1.1; font-weight:900;
+  letter-spacing:.4px;
+}
+.accent{ color:var(--brand); }
+.subhead{
+  margin:0 auto 28px; max-width:640px;
+  color:#111; font-size:18px;
+}
+.btn-primary{
+  background:transparent; color:#111;
+  border:3px solid #111; padding:16px 34px; font-size:20px;
+}
+
+/* ---- Small screens ---- */
+@media (max-width: 820px){
+  .links{ display:none; }              /* keep header simple on mobile */
+  .headline{ font-size:34px; }
+  .rings{ width:640px; height:640px; }
+  .bulb{ width:300px; height:300px; left:40px; bottom:40px; }
+}

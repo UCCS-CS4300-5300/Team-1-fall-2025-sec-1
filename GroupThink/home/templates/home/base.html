@@ -1,0 +1,26 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GroupThink</title>
+  <link rel="stylesheet" href="{% static 'styles.css' %}">
+</head>
+<body>
+    <!-- Top Nav -->
+  <nav class="nav-wrap">
+    <div class="nav">
+      <div class="brand">GROUPTHINK</div>
+      <ul class="links">
+        <li><a href="#">Dashboard</a></li>
+        <li><a href="#">My Tasks</a></li>
+        <li><a href="{% url 'create_meeting' %}">Meetings</a></li>
+      </ul>
+      <a class="btn btn-login" href="#">Login</a>
+    </div>
+  </nav>
+    {% block content %}
+    
+    {% endblock %}
+</body>

@@ -1,0 +1,29 @@
+{% extends 'home/base.html' %}
+{% block title %}Create Meeting{% endblock %}
+
+{% block content %}
+<main style="display: flex; flex-direction: column; justify-content: flex-start; align-items: center; min-height: 100vh; padding-top: 40px; gap: 24px;">
+    <h2 class="meeting-title">{{ meeting.title }}</h2>
+
+    <div id="jitsi-container" style="width: 900px; height: 600px; border-radius: 10px; overflow: hidden; box-shadow: 0 0 10px rgba(0,0,0,0.3);"></div>
+
+
+    <script src='https://8x8.vc/{{ app_id }}/external_api.js'></script>
+    <script>
+
+        const domain = '8x8.vc';
+        const options = {
+            roomName: '{{ room_name }}',
+            jwt: '{{ token }}',
+            width: 900,
+            height: 600,
+            parentNode: document.getElementById('jitsi-container'),
+            lang: 'en'
+        };
+
+        const api = new JitsiMeetExternalAPI(domain, options);
+
+    </script>
+</main>
+
+{% endblock %}

@@ -1,0 +1,52 @@
+name: Automatically run tests and print coverage to console
+
+# Workflow runs if a push or pull-request
+on:
+  push:
+    branches: [main, meeting_integration]
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  # Job that runs tests and prints metrics to console
+  run-test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    # Various steps required
+    steps:
+       # For loading repo code into the VM
+      - name: Load in Code
+        uses: actions/checkout@v4
+
+        # For setting up python v3.12 in the VM
+      - name: Setup Python Version
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+        # Installs the needed dependencies for running script to the VM
+      - name: Install Necessary Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-django pytest-cov django python-dotenv PyJWT
+
+        # Sets up Django settings to include environment
+      - name: Set Django settings
+        run: echo "DJANGO_SETTINGS_MODULE=GroupThink.settings" >> $GITHUB_ENV 
+
+        # Run the tests in Django
+      - name: Run tests with coverage
+        working-directory: GroupThink
+        run: |
+            pytest --cov=. --cov-report=term-missing --cov-report=xml:coverage.xml --cov-fail-under=80
+
+        # Posts Nice looking metrics to Pull Requests
+      - name: Post coverage comment in Pull Request
+        if: github.event_name == 'pull_request'
+        uses: MishaKav/pytest-coverage-comment@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          pytest-xml-coverage-path: GroupThink/coverage.xml
