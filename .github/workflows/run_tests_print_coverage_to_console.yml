@@ -3,7 +3,7 @@ name: Automatically run tests and print coverage to console
 # Workflow runs if a push or pull-request
 on:
   push:
-    branches: [main, meeting_integration]
+    branches: [main, meeting_integration, cleanup-home]
   pull_request:
     types: [opened, synchronize, reopened]
 
@@ -39,7 +39,7 @@ jobs:
 
         # Run the tests in Django
       - name: Run tests with coverage
-        working-directory: GroupThink
+        working-directory: ./GroupThink
         run: |
             pytest --cov=. --cov-report=term-missing --cov-report=xml:coverage.xml --cov-fail-under=80
 
