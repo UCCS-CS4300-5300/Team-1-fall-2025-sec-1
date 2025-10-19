@@ -32,11 +32,12 @@ DEBUG = False
 ALLOWED_HOSTS = [
     'app-brackencontainer-19.devedu.io',
     'editor-brackencontainer-19.devedu.io',
-    '127.0.0.1'
+    '127.0.0.1',
+    "team-1-fall-2025-sec-1.onrender.com"
 ]
 
 CSRF_TRUSTED_ORIGINS = [
-    "https://GroupThink.onrender.com"
+    "https://team-1-fall-2025-sec-1.onrender.com",
 ]
 
 
