@@ -92,13 +92,20 @@ def login_view(request):
             if user is not None:
                 login(request, user)
 
+                # ✅ Ensure profile exists to prevent "User has no profile" error
+                from home.models import UserProfile
+                profile, _ = UserProfile.objects.get_or_create(
+                    user=user,
+                    defaults={"display_name": user.username}
+                )
+
                 # Set session expiry
                 if not remember_me:
                     request.session.set_expiry(0)  # Session expires when browser closes
                 else:
                     request.session.set_expiry(1209600)  # 2 weeks
 
-                messages.success(request, f'Welcome back, {user.profile.display_name}!')
+                messages.success(request, f'Welcome back, {profile.display_name}!')
                 return redirect('dashboard')
             else:
                 messages.error(request, 'Invalid username/email or password.')
