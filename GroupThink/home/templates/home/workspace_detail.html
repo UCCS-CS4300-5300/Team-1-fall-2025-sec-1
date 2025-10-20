@@ -184,9 +184,16 @@
     {% endif %}
   </section>
 
-  <div class="workspace-footer">
+  <div class="workspace-footer" style="display: flex; justify-content: center; align-items: center; gap: 16px; margin-top: 24px;">
     <a href="{% url 'dashboard' %}" class="btn btn-secondary">Back to Dashboard</a>
-  </div>
+  
+    {% if membership.role == 'admin' %}
+    <button class="btn btn-danger" style="background: #e53e3e; color: white;"
+      onclick="alert('Delete Workspace button clicked.');">
+      Delete Workspace
+    </button>
+    {% endif %}
+  </div>  
 </main>
 
 <script>
