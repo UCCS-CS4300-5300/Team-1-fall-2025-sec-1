@@ -38,6 +38,7 @@ jobs:
       - name: Set Django settings
         run: echo "DJANGO_SETTINGS_MODULE=GroupThink.settings" >> $GITHUB_ENV 
 
+        # For collecting static files
       - name: Collect static files
         working-directory: ./GroupThink
         run: python manage.py collectstatic --noinput
