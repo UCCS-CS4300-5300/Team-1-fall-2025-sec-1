@@ -39,6 +39,7 @@ jobs:
         run: echo "DJANGO_SETTINGS_MODULE=GroupThink.settings" >> $GITHUB_ENV 
 
       - name: Collect static files
+        working-directory: ./GroupThink
         run: python manage.py collectstatic --noinput
 
         # Run the tests in Django
