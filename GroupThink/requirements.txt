@@ -5,3 +5,6 @@ PyJWT
 python-dotenv
 dj-database-url        # if/when you use Postgres
 psycopg2-binary        # if/when you use Postgres
+pytest
+pytest-django
+pytest-cov
