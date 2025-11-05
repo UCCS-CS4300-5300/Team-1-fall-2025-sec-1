@@ -37,4 +37,7 @@ urlpatterns = [
 
     #Transcriptions
     path("transcripts/<str:room_name>/", views.get_transcript, name="get_transcript"),
+
+    #Delete Workspace
+    path('workspace/<int:pk>/delete/', views.delete_workspace, name='delete_workspace'),
 ]

@@ -4,17 +4,31 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.contrib import messages
 from django.utils.crypto import get_random_string
+from django.views.decorators.csrf import csrf_exempt
+from django.http import HttpResponse, JsonResponse, HttpResponseForbidden
 # from django.core.mail import send_mail  # For future email verification
 # from django.conf import settings  # For future email verification
-from .models import Meeting, UserProfile, Workspace, WorkspaceMembership, Task, MeetingTranscriptChunk
-from .forms import SignUpForm, LoginForm, WorkspaceForm, JoinWorkspaceForm, TaskForm
-import uuid, os
+
+from .models import (
+    Meeting,
+    UserProfile,
+    Workspace,
+    WorkspaceMembership,
+    Task,
+    MeetingTranscriptChunk,
+)
+from .forms import (
+    SignUpForm,
+    LoginForm,
+    WorkspaceForm,
+    JoinWorkspaceForm,
+    TaskForm,
+)
 from .jaas_functions import generate_jaas_token
-from django.views.decorators.csrf import csrf_exempt
+
+import uuid
+import os
 import json
-from django.http import HttpResponse, JsonResponse
-
-
 
 # Create your views here.
 def index(request):
@@ -679,3 +693,22 @@ def get_transcript(request, room_name: str):
         name = (speaker or "Unknown").strip()
         lines.append(f"{name}: {text}")
     return HttpResponse("\n".join(lines), content_type="text/plain")
+
+def delete_workspace(request, pk):
+    workspace = get_object_or_404(Workspace, pk=pk)
+
+    # Check if the current user is an admin of this workspace
+    is_admin = WorkspaceMembership.objects.filter(
+        workspace=workspace,
+        user=request.user,
+        role='admin'
+    ).exists()
+
+    if not is_admin:
+        return HttpResponseForbidden("You are not allowed to delete this workspace.")
+
+    if request.method == 'POST':
+        workspace.delete()
+        return redirect('dashboard')
+
+    return HttpResponseForbidden("Invalid request.")
