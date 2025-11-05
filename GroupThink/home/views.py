@@ -6,10 +6,14 @@ from django.contrib import messages
 from django.utils.crypto import get_random_string
 # from django.core.mail import send_mail  # For future email verification
 # from django.conf import settings  # For future email verification
-from .models import Meeting, UserProfile, Workspace, WorkspaceMembership, Task
+from .models import Meeting, UserProfile, Workspace, WorkspaceMembership, Task, MeetingTranscriptChunk
 from .forms import SignUpForm, LoginForm, WorkspaceForm, JoinWorkspaceForm, TaskForm
 import uuid, os
 from .jaas_functions import generate_jaas_token
+from django.views.decorators.csrf import csrf_exempt
+import json
+from django.http import HttpResponse, JsonResponse
+
 
 
 # Create your views here.
@@ -611,3 +615,67 @@ def delete_task(request, task_id):
         return redirect('workspace_detail', workspace_id=workspace_id)
     else:
         return redirect('my_tasks')
+
+# For recieving data from JaaS regarding transcripts
+@csrf_exempt
+def jaas_webhook(request):
+    try:
+        raw = request.body.decode("utf-8")
+    except Exception:
+        raw = ""
+    print("WEBHOOK RAW:", raw[:400])
+
+    try:
+        payload = json.loads(raw or "{}")
+    except Exception as e:
+        print("WEBHOOK JSON ERROR:", repr(e))
+        payload = {}
+
+    event = payload.get("eventType")
+
+    # ---- ROOM IDENT ----
+    data = payload.get("data") or {}
+    # fqn is TOP-LEVEL in your logs; keep robust fallbacks too
+    room_full = (
+        payload.get("fqn")              
+        or data.get("fqn")              
+        or data.get("roomName")         
+        or payload.get("roomName")      
+        or data.get("room")             
+        or ""
+    ).strip()
+
+    room_slug = room_full.rsplit("/", 1)[-1] if room_full else ""
+
+    # ---- TEXT ----
+    text = (data.get("final") or data.get("stable") or data.get("text") or "").strip()
+    participant = data.get("participant") or {}
+    speaker = participant.get("name") or participant.get("id") or ""
+
+    print(f"WEBHOOK PARSED: event={event!r} slug={room_slug!r} text_head={text[:80]!r}")
+
+    if event == "TRANSCRIPTION_CHUNK_RECEIVED" and room_slug and text:
+        from .models import Meeting
+        m = Meeting.objects.filter(room_name=room_slug).first()
+        if not m:
+            print("WEBHOOK NO MEETING:", room_slug)
+        else:
+            m.chunks.create(text=text, speaker=speaker)
+            print("WEBHOOK SAVED → meeting_id:", m.id)
+
+    return JsonResponse({"ok": True})
+
+# Grabs transcript data to send to live transcription text box
+def get_transcript(request, room_name: str):
+    slug = (room_name or "").rsplit("/", 1)[-1]
+    meeting = get_object_or_404(Meeting, room_name=slug)
+
+    # Prints in order of time said
+    rows = meeting.chunks.order_by("created_at").values_list("speaker", "text")
+    lines = []
+
+    # Ensures to give each line its appropriate speaker.
+    for speaker, text in rows:
+        name = (speaker or "Unknown").strip()
+        lines.append(f"{name}: {text}")
+    return HttpResponse("\n".join(lines), content_type="text/plain")

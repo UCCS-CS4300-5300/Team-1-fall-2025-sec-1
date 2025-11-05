@@ -36,6 +36,9 @@
 
     <div id="jitsi-container" style="width: 900px; height: 600px; border-radius: 10px; overflow: hidden; box-shadow: 0 0 10px rgba(0,0,0,0.3);"></div>
 
+    <h3 style="margin-top:20px;">Live Transcript</h3>
+    <pre id="transcript-box" style="background:#f8f9fa; padding:10px; width:900px; height:200px; overflow-y:auto;"></pre>
+
     <!-- Meeting Controls (for creators/admins) -->
     {% if meeting.created_by == user or user.is_staff %}
     <div style="display: flex; gap: 10px;">
@@ -71,6 +74,18 @@
         api.addListener('readyToClose', function() {
             window.location.href = '{% url "dashboard" %}';
         });
+
+        // Automatically enable subtitles (transcription captions)
+        api.addEventListener('videoConferenceJoined', () => {
+        api.executeCommand('toggleSubtitles');
+        });
+
+        async function fetchTranscript() {
+            const res = await fetch("/transcripts/{{ meeting.room_name }}/");
+            document.getElementById("transcript-box").textContent = await res.text();
+        }
+        setInterval(fetchTranscript, 3000);
+        fetchTranscript();
 
         // Handle Mark as Live - reload page to show LIVE badge
         document.getElementById('mark-live-form').addEventListener('submit', function(e) {

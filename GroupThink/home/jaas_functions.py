@@ -29,9 +29,9 @@ def generate_jaas_token(room_name, user_id="dev_tester1", user_name="Developer")
         "context": {
             "features": {
                 "recording": True,
-                "livestreaming": True,
+                "livestreaming": False,
                 "transcription": True,
-                "outbound-call": True,
+                "outbound-call": False,
                 "sip-outbound-call": False,
             },
             "user": {"id": user_id, "name": user_name, "moderator": True},
