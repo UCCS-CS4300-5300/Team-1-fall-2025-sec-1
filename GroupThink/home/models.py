@@ -95,6 +95,12 @@ class Meeting(models.Model):
     def __str__(self):
         return f"{self.title} - {self.get_status_display()}"
 
+class MeetingTranscriptChunk(models.Model):
+    meeting = models.ForeignKey(Meeting, on_delete=models.CASCADE, related_name="chunks")
+    text = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    speaker = models.CharField(max_length=120, blank=True, default="")
+
 
 class Task(models.Model):
     """Tasks that can be assigned to team members"""

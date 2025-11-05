@@ -1,0 +1,32 @@
+name: Deploy 
+
+# Workflow runs if a push or pull-request
+on:
+  push:
+    branches: [main]
+
+jobs:
+  # Job that deploys updates to render site
+  deploy:
+    runs-on: ubuntu-latest
+
+    # Various steps required
+    steps:
+        # Ensure that the webhook is in secrets
+      - name: Check that Render Webhook is in SECRETS
+        id: guard
+                # Saves a "variable" to show that the secret is in the repo or not.
+                run: |
+          if [ -z "${{ secrets.RENDER_DEPLOY_HOOK_URL }}" ]; then
+            echo "missing=1" >> $GITHUB_OUTPUT
+          else
+            echo "missing=0" >> $GITHUB_OUTPUT
+          fi
+        # If not, skip the deployment.
+      - name: Skip deploy (secret not set)
+        if: steps.guard.outputs.missing == '1'
+        run: echo "RENDER_DEPLOY_HOOK_URL not configured. Skipping deploy."
+        # If so, deploy the changes to render.
+      - name: Trigger Render deploy
+        if: steps.guard.outputs.missing == '0'
+        run: curl -fsS -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"

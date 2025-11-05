@@ -38,6 +38,7 @@ ALLOWED_HOSTS = [
 
 CSRF_TRUSTED_ORIGINS = [
     "https://groupthink-gt.onrender.com",
+    "https://app-brackencontainer-19.devedu.io"
 ]
 
 

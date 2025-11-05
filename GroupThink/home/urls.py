@@ -31,4 +31,10 @@ urlpatterns = [
     path('workspace/<int:workspace_id>/create-task/', views.create_task, name='create_task'),
     path('task/<int:task_id>/update-status/', views.update_task_status, name='update_task_status'),
     path('task/<int:task_id>/delete/', views.delete_task, name='delete_task'),
+
+    # Webhooks
+    path("webhooks/jaas/", views.jaas_webhook),
+
+    #Transcriptions
+    path("transcripts/<str:room_name>/", views.get_transcript, name="get_transcript"),
 ]
