@@ -33,12 +33,14 @@ ALLOWED_HOSTS = [
     'app-brackencontainer-19.devedu.io',
     'editor-brackencontainer-19.devedu.io',
     '127.0.0.1',
-    "groupthink-gt.onrender.com"
+    "groupthink-gt.onrender.com",
+    'app-acedcontainer-19.devedu.io'
 ]
 
 CSRF_TRUSTED_ORIGINS = [
     "https://groupthink-gt.onrender.com",
-    "https://app-brackencontainer-19.devedu.io"
+    "https://app-brackencontainer-19.devedu.io",
+    "http://app-acedcontainer-19.devedu.io/"
 ]
 
 
