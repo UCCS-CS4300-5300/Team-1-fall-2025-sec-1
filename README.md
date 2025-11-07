@@ -39,14 +39,15 @@ coverage report -m
 ---
 
 ## AI Usage
+
 AI tools were used during the development of this project to assist with various tasks, including:
 
-- Test generation for Django unit tests  
-- Code generation for views, models, and serializers  
-- Syntax checking for Python and Django files  
-- HTML and CSS generation for templates and styling  
-- Drafting documentation for the CI/CD pipeline on GitHub  
+- Generating and refining Django unit tests  
+- Creating and validating views, models, and serializers  
+- Performing syntax and style checks for Python and Django files  
+- Designing and styling HTML and CSS templates  
+- Drafting documentation for the GitHub CI/CD pipeline  
+- Implementing functionality for adding and deleting workspaces  
+- Using OpenAI’s Whisper model to transcribe team meeting audio recordings  
 
-All AI-assisted outputs were reviewed, edited, and validated by the development team before inclusion in the final project.
-
----
+All AI-assisted outputs were reviewed, tested, and approved by the development team before inclusion in the final project.
