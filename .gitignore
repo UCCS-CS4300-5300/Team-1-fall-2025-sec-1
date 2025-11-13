@@ -20,3 +20,6 @@ env/
 
 # Django static files (optional, if collected)
 staticfiles/
+
+jaas_private.pem
+.env

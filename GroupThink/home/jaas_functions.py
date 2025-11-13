@@ -1,4 +1,6 @@
 import os, time, jwt
+from django.conf import settings
+from pathlib import Path
 
 def generate_jaas_token(room_name, user_id="dev_tester1", user_name="Developer"):
     """Generates a JaaS JWT for the meeting."""
@@ -6,20 +8,17 @@ def generate_jaas_token(room_name, user_id="dev_tester1", user_name="Developer")
     app_id = os.getenv("JAAS_APP_ID")
     key_id = os.getenv("JAAS_API_KEY_ID")
 
-    # Read private key from env and normalize newlines
-    private_key = (os.getenv("JAAS_API_KEY") or "").replace("\\n", "\n").strip()
+    key_file = os.getenv("JAAS_KEY_FILE", "jaas_private.pem")
+    key_path = Path(settings.BASE_DIR) / key_file
 
-    # Fail fast with a readable message if anything is missing/misformatted
-    missing = [k for k, v in {
-        "JAAS_APP_ID": app_id,
-        "JAAS_API_KEY_ID": key_id,
-        "JAAS_API_KEY": private_key
-    }.items() if not v]
-    if missing:
-        raise RuntimeError(f"Missing env vars: {', '.join(missing)}")
+    if not key_path.exists():
+        raise RuntimeError(f"JAAS key file not found at {key_path}")
 
+    private_key = key_path.read_text().strip()
+
+    # Basic sanity check so we fail with a clearer error if something is off
     if not private_key.startswith("-----BEGIN") or "PRIVATE KEY-----" not in private_key:
-        raise TypeError("JAAS_API_KEY is not a PEM-formatted private key")
+        raise TypeError("JAAS key file does not contain a valid PEM private key")
 
     payload = {
         "aud": "jitsi",

@@ -6,6 +6,8 @@ from django.contrib import messages
 from django.utils.crypto import get_random_string
 from django.views.decorators.csrf import csrf_exempt
 from django.http import HttpResponse, JsonResponse, HttpResponseForbidden
+from .meeting_ai import extract_tasks_from_meeting
+
 # from django.core.mail import send_mail  # For future email verification
 # from django.conf import settings  # For future email verification
 
@@ -303,6 +305,46 @@ def join_meeting(request, room_name):
 
 
 # ============ NEW FEATURES: Meeting Management ============
+@login_required
+def generate_tasks_from_meeting(request, meeting_id):
+    """
+    Use AI to extract tasks from a meeting's transcript and create Task rows.
+    """
+    meeting = get_object_or_404(Meeting, id=meeting_id)
+
+    # Permission check: meeting creator or workspace member
+    is_creator = meeting.created_by == request.user
+    is_workspace_member = False
+    if meeting.workspace:
+        is_workspace_member = WorkspaceMembership.objects.filter(
+            user=request.user,
+            workspace=meeting.workspace
+        ).exists()
+
+    if not (is_creator or is_workspace_member):
+        messages.error(request, "You do not have permission to generate tasks for this meeting.")
+        return redirect('dashboard')
+
+    if request.method != "POST":
+        return HttpResponseForbidden("Invalid request method.")
+
+    try:
+        result = extract_tasks_from_meeting(meeting.id, request.user.id)
+    except Exception as e:
+        messages.error(request, f"AI task generation failed: {e}")
+    else:
+        created = result.get("created", 0)
+        reason = result.get("reason")
+        if created:
+            messages.success(request, f"Generated {created} task(s) from meeting transcript.")
+        elif reason:
+            messages.info(request, reason)
+        else:
+            messages.info(request, "No tasks were created from the transcript.")
+
+    if meeting.workspace:
+        return redirect('workspace_detail', workspace_id=meeting.workspace.id)
+    return redirect('dashboard')
 
 @login_required
 def delete_meeting(request, meeting_id):
