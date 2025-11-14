@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 # git test
 from pathlib import Path
 from dotenv import load_dotenv
+import os
 
 # Loads the .env file for local testing of secrets
 load_dotenv()
@@ -145,3 +146,6 @@ MIDDLEWARE.insert(1, "whitenoise.middleware.WhiteNoiseMiddleware")
 
 # Optional, but improves static file caching/compression
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+
+# OpenAI configuration
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
