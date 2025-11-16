@@ -136,9 +136,9 @@ def extract_tasks_from_meeting(meeting_id: int, created_by_user_id: int) -> dict
     if not transcript_text:
         return {"created": 0, "reason": "Transcript is empty."}
 
-    resp = get_client().responses.create(
-        model="gpt-4.1-mini",  # or "gpt-4.1" / "gpt-4o" / "gpt-5" if you have it
-        input=[
+    resp = get_client().chat.completions.create(
+        model="gpt-4o-mini",  # or "gpt-4o" if you want the larger model
+        messages=[
             {"role": "system", "content": SYSTEM_TASKS},
             {"role": "user", "content": f"Transcript:\n{transcript_text}"},
         ],
@@ -152,11 +152,13 @@ def extract_tasks_from_meeting(meeting_id: int, created_by_user_id: int) -> dict
         },
     )
 
-    # New Responses API: structured output lives in .output[0].content[0].parsed
+    # Parse the response - it's in .choices[0].message.content
     try:
-        data = resp.output[0].content[0].parsed
-    except Exception:
-        return {"created": 0, "reason": "Failed to parse AI response."}
+        import json
+        content = resp.choices[0].message.content
+        data = json.loads(content)
+    except Exception as e:
+        return {"created": 0, "reason": f"Failed to parse AI response: {e}"}
 
     items = data.get("tasks", []) if isinstance(data, dict) else []
     created = 0
