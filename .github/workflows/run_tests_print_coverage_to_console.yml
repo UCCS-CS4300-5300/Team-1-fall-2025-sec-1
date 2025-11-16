@@ -86,5 +86,5 @@ jobs:
       - name: Run Pylint and print report
         working-directory: ./GroupThink
         run: |
-          python pylint -m Groupthink || true
+          pylint GroupThink home || true
 
