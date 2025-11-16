@@ -164,14 +164,29 @@
         </div>
         <div style="display: flex; gap: 8px; align-items: center;">
           <button onclick="copyMeetingLink('{{ meeting.room_name }}')" class="btn btn-small btn-secondary">Copy Link</button>
+          
           {% if meeting.status != 'ended' %}
-          <a href="{% url 'join_meeting' meeting.room_name %}" class="btn btn-small">Join</a>
+            {% if meeting.room_name %}
+              <a href="{% url 'join_meeting' meeting.room_name %}" class="btn btn-small">Join</a>
+            {% endif %}
           {% endif %}
+
+          {% if meeting.status == 'ended' %}
+            {% if membership.role == 'admin' or meeting.created_by == user %}
+              <form method="post" action="{% url 'generate_tasks_from_meeting' meeting.id %}" style="margin: 0;">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-small btn-secondary">
+                  Generate AI Tasks
+                </button>
+              </form>
+            {% endif %}
+          {% endif %}
+
           {% if membership.role == 'admin' or meeting.created_by == user %}
-          <form method="post" action="{% url 'delete_meeting' meeting.id %}" style="margin: 0;">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-small" style="background: #e53e3e; color: white;" onclick="return confirm('Delete this meeting?')">Delete</button>
-          </form>
+            <form method="post" action="{% url 'delete_meeting' meeting.id %}" style="margin: 0;">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-small" style="background: #e53e3e; color: white;" onclick="return confirm('Delete this meeting?')">Delete</button>
+            </form>
           {% endif %}
         </div>
       </div>
@@ -324,7 +339,7 @@ function copyMeetingLink(roomName) {
       {% else %}
       <p style="color:#666; margin:0;">Invite code is visible to admins only.</p>
       {% endif %}
-
+      
       {% if membership.role == 'admin' %}
       <div style="margin-top:12px;">
         <form method="post" action="{% url 'toggle_code_visibility' workspace.id %}">
@@ -351,4 +366,5 @@ document.getElementById('members-close').addEventListener('click', function() {
   document.getElementById('members-modal').style.display = 'none';
 });
 </script>
+
 {% endblock %}
