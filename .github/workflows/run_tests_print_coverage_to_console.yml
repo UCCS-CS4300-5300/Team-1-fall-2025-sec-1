@@ -112,13 +112,13 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install safety
+          pip install pip-audit
 
       # Using safety to generate CI report in actions
-      - name: Run Safety dependency vulnerability scan (Using Safety)
+      - name: Run Safety dependency vulnerability scan (Using pip-audit)
         working-directory: ./GroupThink
         run: |
-          safety scan --full-report || true
+          pip-audit -r requirements.txt -f markdown || true
 
       # Using dependabot to generate CI report in actions
       - name: Run Safety dependency vulnerability scan (Using Most recent Dependabot report)
