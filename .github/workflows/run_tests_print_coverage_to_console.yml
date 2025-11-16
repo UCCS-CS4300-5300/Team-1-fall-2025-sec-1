@@ -2,8 +2,6 @@ name: Automatically runs tests, lints, and dependency vulnerabilites scans. Prin
 
 # Workflow runs if a push or pull-request
 on:
-  push:
-    branches: [main, meeting_integration, cleanup-home, New_CI_Features]
   pull_request:
     types: [opened, synchronize, reopened]
 
