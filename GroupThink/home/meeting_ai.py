@@ -1,34 +1,32 @@
 # GroupThink/home/meeting_ai.py
-import io
+import os
 import datetime as dt
 from django.conf import settings
 from django.db import transaction
-from openai import OpenAI
+from anthropic import Anthropic
 from .models import Meeting, MeetingTranscriptChunk, Task
 
-from .models import Meeting, MeetingTranscriptChunk, Task
+# ---------------- Anthropic client (lazy init) ----------------
 
-# ---------------- OpenAI client (lazy init) ----------------
+_client: Anthropic | None = None
 
-_client: OpenAI | None = None
-
-def get_client() -> OpenAI:
+def get_client() -> Anthropic:
     """
-    Return a cached OpenAI client.
-    Raises a clear error if OPENAI_API_KEY isn't configured.
+    Return a cached Anthropic client.
+    Raises a clear error if ANTHROPIC_API_KEY isn't configured.
     """
     global _client
     if _client is not None:
         return _client
 
-    api_key = getattr(settings, "OPENAI_API_KEY", "") or os.getenv("OPENAI_API_KEY", "")
+    api_key = getattr(settings, "ANTHROPIC_API_KEY", "") or os.getenv("ANTHROPIC_API_KEY", "")
     if not api_key:
         raise RuntimeError(
-            "OPENAI_API_KEY is not configured. "
+            "ANTHROPIC_API_KEY is not configured. "
             "Set it in your .env or hosting environment."
         )
 
-    _client = OpenAI(api_key=api_key)
+    _client = Anthropic(api_key=api_key)
     return _client
 
 
@@ -78,57 +76,11 @@ def _assemble_transcript_text(meeting: Meeting) -> str:
     return "\n".join(parts).strip()
 
 
-# ---------------- Audio → transcript (optional) ----------------
-
-def transcribe_meeting(meeting_id: int) -> int:
-    """
-    Transcribe the meeting's audio and store into MeetingTranscriptChunk rows.
-    Requires either meeting.audio_file (FileField) OR meeting.recording_url.
-    Returns number of chunks saved.
-    """
-    meeting = Meeting.objects.select_for_update().get(id=meeting_id)
-
-    # prefer a FileField if you added it
-    audio_fp = None
-    if hasattr(meeting, "audio_file") and meeting.audio_file:
-        audio_fp = meeting.audio_file.open("rb")
-    elif meeting.recording_url:
-        # fallback: fetch from URL into memory
-        import requests
-        r = requests.get(meeting.recording_url, timeout=60)
-        r.raise_for_status()
-        audio_fp = io.BytesIO(r.content)
-    else:
-        raise ValueError("No audio available. Upload an audio file or set recording_url.")
-
-    with audio_fp:
-        tr = get_client().audio.transcriptions.create(
-            model="whisper-1",  # or "gpt-4o-transcribe" depending on your account
-            file=audio_fp,
-            response_format="verbose_json",  # gives segments with timestamps
-        )
-
-    segments = getattr(tr, "segments", None) or []
-    created = 0
-    with transaction.atomic():
-        # optional: clear old chunks
-        meeting.chunks.all().delete()
-        for seg in segments:
-            MeetingTranscriptChunk.objects.create(
-                meeting=meeting,
-                text=(seg.get("text") or "").strip(),
-                speaker="",  # add diarization later if you have it
-            )
-            created += 1
-
-    return created
-
-
 # ---------------- Transcript → Tasks via AI ----------------
 
 def extract_tasks_from_meeting(meeting_id: int, created_by_user_id: int) -> dict:
     """
-    Parse meeting transcript into tasks via structured output, create Task rows.
+    Parse meeting transcript into tasks via Claude, create Task rows.
     Returns {"created": <int>, "reason": <str optional>}.
     """
     meeting = Meeting.objects.get(id=meeting_id)
@@ -136,27 +88,35 @@ def extract_tasks_from_meeting(meeting_id: int, created_by_user_id: int) -> dict
     if not transcript_text:
         return {"created": 0, "reason": "Transcript is empty."}
 
-    resp = get_client().chat.completions.create(
-        model="gpt-4o-mini",  # or "gpt-4o" if you want the larger model
-        messages=[
-            {"role": "system", "content": SYSTEM_TASKS},
-            {"role": "user", "content": f"Transcript:\n{transcript_text}"},
-        ],
-        response_format={
-            "type": "json_schema",
-            "json_schema": {
-                "name": "meeting_tasks",
-                "schema": TASK_SCHEMA,
-                "strict": True,
-            },
-        },
-    )
+    prompt = f"""{SYSTEM_TASKS}
 
-    # Parse the response - it's in .choices[0].message.content
+Transcript:
+{transcript_text}
+
+Return a JSON object with this exact structure:
+{TASK_SCHEMA}"""
+
     try:
+        resp = get_client().messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=2000,
+            messages=[
+                {"role": "user", "content": prompt}
+            ]
+        )
+        
+        # Extract text from response
+        response_text = resp.content[0].text
+        
+        # Parse JSON from response
         import json
-        content = resp.choices[0].message.content
-        data = json.loads(content)
+        # Sometimes Claude wraps JSON in markdown code blocks, so clean it
+        if "```json" in response_text:
+            response_text = response_text.split("```json")[1].split("```")[0].strip()
+        elif "```" in response_text:
+            response_text = response_text.split("```")[1].split("```")[0].strip()
+        
+        data = json.loads(response_text)
     except Exception as e:
         return {"created": 0, "reason": f"Failed to parse AI response: {e}"}
 
@@ -176,14 +136,13 @@ def extract_tasks_from_meeting(meeting_id: int, created_by_user_id: int) -> dict
             try:
                 due = dt.date.fromisoformat(raw_due)
             except ValueError:
-                # ignore bad dates; leave due_date as None
                 pass
 
         Task.objects.create(
             title=title[:200],
             description=(item.get("notes") or "").strip(),
-            workspace=meeting.workspace,      # tie to the meeting's workspace
-            assigned_to=None,                 # TODO: map assignee_free_text -> User
+            workspace=meeting.workspace,
+            assigned_to=None,  # TODO: map assignee_free_text -> User
             created_by_id=created_by_user_id,
             status="todo",
             due_date=due,
