@@ -115,13 +115,21 @@ jobs:
           pip install pip-audit
 
       # Using safety to generate CI report in actions
-      - name: Run Safety dependency vulnerability scan (Using pip-audit)
+      - name: Run dependency vulnerability scan (Using pip-audit)
         working-directory: ./GroupThink
         run: |
+          echo "===== Dependency Vulnerability Report (pip-audit) ====="
+          echo "Python version:" 
+          python --version
+          echo
+          echo "Installed packages:"
+          pip list
+          echo
+          echo "Running vulnerability scan..."
           pip-audit -r requirements.txt -f markdown || true
 
       # Using dependabot to generate CI report in actions
-      - name: Run Safety dependency vulnerability scan (Using Most recent Dependabot report)
+      - name: Run dependency vulnerability scan (Using Most recent Dependabot report)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
