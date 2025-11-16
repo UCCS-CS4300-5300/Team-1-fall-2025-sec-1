@@ -310,9 +310,10 @@ def generate_tasks_from_meeting(request, meeting_id):
     """
     Use AI to extract tasks from a meeting's transcript and create Task rows.
     """
+    print("=== STARTING TASK GENERATION ===")
     meeting = get_object_or_404(Meeting, id=meeting_id)
 
-    # Permission check: meeting creator or workspace member
+    # Permission check
     is_creator = meeting.created_by == request.user
     is_workspace_member = False
     if meeting.workspace:
@@ -328,9 +329,14 @@ def generate_tasks_from_meeting(request, meeting_id):
     if request.method != "POST":
         return HttpResponseForbidden("Invalid request method.")
 
+    print("=== CALLING EXTRACT_TASKS_FROM_MEETING ===")
     try:
         result = extract_tasks_from_meeting(meeting.id, request.user.id)
+        print(f"=== RESULT: {result} ===")
     except Exception as e:
+        import traceback
+        print("=== FULL ERROR ===")
+        print(traceback.format_exc())
         messages.error(request, f"AI task generation failed: {e}")
     else:
         created = result.get("created", 0)

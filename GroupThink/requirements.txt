@@ -10,3 +10,4 @@ pytest-django
 pytest-cov
 cryptography
 openai>=1.0.0
+anthropic
