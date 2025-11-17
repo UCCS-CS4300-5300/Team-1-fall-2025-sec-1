@@ -44,9 +44,10 @@ def generate_jaas_token(room_name, user_id="dev_tester1", user_name="Developer")
         "room": room_name,
         "context": {
             "features": {
-                "recording": True,
+                "recording": False,
+                # "recording": True, <-- remove line above and uncomment to enable transcriptions (disabled right now for cost)
                 "livestreaming": False,
-                "transcription": True,
+                "transcription": False,
                 # "transcription": True, <-- remove line above and uncomment to enable transcriptions (disabled right now for cost)
                 "outbound-call": False,
                 "sip-outbound-call": False,
