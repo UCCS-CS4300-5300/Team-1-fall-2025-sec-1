@@ -1,6 +1,8 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils.crypto import get_random_string
+from django.conf import settings
+from django.utils import timezone
 import uuid
 
 
@@ -91,6 +93,8 @@ class Meeting(models.Model):
     ended_at = models.DateTimeField(null=True, blank=True)
     recording_url = models.URLField(max_length=500, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    participants = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name='meetings_participating',
+        blank=True,)
 
     def __str__(self):
         return f"{self.title} - {self.get_status_display()}"
@@ -144,5 +148,21 @@ class Task(models.Model):
             'done': '#22c55e',      # Green
         }
         return colors.get(self.status, '#gray')
+
+class Recording(models.Model):
+    meeting = models.ForeignKey(Meeting, on_delete=models.CASCADE, related_name="recordings")
+    storage_url = models.URLField()
+    duration_sec = models.PositiveIntegerField(null=True, blank=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    ended_at = models.DateTimeField(null=True, blank=True)
+    initiator_id = models.CharField(max_length=255, blank=True)
+    expires_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def is_expired(self):
+        return timezone.now() >= self.expires_at
+
+    def __str__(self):
+        return f"Recording #{self.id} for {self.meeting.title}"
 
 

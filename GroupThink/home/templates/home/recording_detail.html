@@ -1,0 +1,63 @@
+{% extends 'home/base.html' %}
+{% block title %}Recording - {{ meeting.title }}{% endblock %}
+
+{% block content %}
+<main class="dashboard-container">
+  <!-- Header -->
+  <div class="dashboard-header">
+    <h1>{{ meeting.title }} – Recording</h1>
+    <a href="{% url 'my_recordings' %}" class="btn btn-secondary">Back to My Recordings</a>
+  </div>
+
+  <!-- Basic info -->
+  <section style="margin-bottom: 24px;">
+    {% if recording.started_at %}
+      <p style="margin: 0; font-size: 14px; color: #666;">
+        Recorded: {{ recording.started_at|date:"M d, Y H:i" }}
+        {% if recording.duration_sec %}
+          ({{ recording.duration_sec }}s)
+        {% endif %}
+      </p>
+    {% endif %}
+    <p style="margin: 4px 0 0 0; font-size: 13px; color: #666;">
+      Available until: {{ recording.expires_at|date:"M d, Y H:i" }}
+      {% if recording.is_expired %}
+        <span style="color: #e53e3e; font-weight: 600;">(expired)</span>
+      {% endif %}
+    </p>
+  </section>
+
+  <!-- Download button -->
+  <section style="margin-bottom: 32px;">
+    {% if not recording.is_expired %}
+      <a href="{{ recording.storage_url }}" class="btn btn-primary">
+        Download Recording
+      </a>
+    {% else %}
+      <span style="color:#999; font-size: 14px;">
+        This recording link has expired.
+      </span>
+    {% endif %}
+  </section>
+
+  <!-- Transcript -->
+  <section>
+    <h2 style="margin-bottom: 12px;">Transcript</h2>
+
+    {% if chunks %}
+      <div class="workspace-card" style="max-height: 400px; overflow-y: auto; padding: 16px;">
+        {% for chunk in chunks %}
+          <p style="margin: 0 0 6px 0; font-size: 14px; color: #333;">
+            <strong>{{ chunk.speaker|default:"Unknown" }}:</strong>
+            {{ chunk.text }}
+          </p>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p style="color:#666; font-size: 14px;">
+        No transcript is available for this meeting.
+      </p>
+    {% endif %}
+  </section>
+</main>
+{% endblock %}

@@ -7,6 +7,7 @@ from django.utils.crypto import get_random_string
 from django.views.decorators.csrf import csrf_exempt
 from django.http import HttpResponse, JsonResponse, HttpResponseForbidden
 from .meeting_ai import extract_tasks_from_meeting
+from .recording_webhook_handlers import handle_recording_uploaded
 
 # from django.core.mail import send_mail  # For future email verification
 # from django.conf import settings  # For future email verification
@@ -18,6 +19,7 @@ from .models import (
     WorkspaceMembership,
     Task,
     MeetingTranscriptChunk,
+    Recording
 )
 from .forms import (
     SignUpForm,
@@ -292,6 +294,8 @@ def join_meeting(request, room_name):
             messages.error(request, 'You do not have access to this meeting.')
             return redirect('dashboard')
 
+    meeting.participants.add(request.user)
+
     token = generate_jaas_token(room_name)
     app_id = os.getenv('JAAS_APP_ID')
     full_room_name = f"{app_id}/{room_name}"
@@ -507,6 +511,25 @@ def toggle_code_visibility(request, workspace_id):
 
     return redirect('workspace_detail', workspace_id=workspace_id)
 
+def delete_workspace(request, pk):
+    workspace = get_object_or_404(Workspace, pk=pk)
+
+    # Check if the current user is an admin of this workspace
+    is_admin = WorkspaceMembership.objects.filter(
+        workspace=workspace,
+        user=request.user,
+        role='admin'
+    ).exists()
+
+    if not is_admin:
+        return HttpResponseForbidden("You are not allowed to delete this workspace.")
+
+    if request.method == 'POST':
+        workspace.delete()
+        return redirect('dashboard')
+
+    return HttpResponseForbidden("Invalid request.")
+
 
 # ============ TASK MANAGEMENT VIEWS ============
 
@@ -678,6 +701,9 @@ def delete_task(request, task_id):
     else:
         return redirect('my_tasks')
 
+
+# ============ ETC ============
+
 # For recieving data from JaaS regarding transcripts
 @csrf_exempt
 def jaas_webhook(request):
@@ -725,6 +751,9 @@ def jaas_webhook(request):
             m.chunks.create(text=text, speaker=speaker)
             print("WEBHOOK SAVED → meeting_id:", m.id)
 
+    if event == "RECORDING_UPLOADED":
+        handle_recording_uploaded(room_full, data)
+
     return JsonResponse({"ok": True})
 
 # Grabs transcript data to send to live transcription text box
@@ -742,21 +771,38 @@ def get_transcript(request, room_name: str):
         lines.append(f"{name}: {text}")
     return HttpResponse("\n".join(lines), content_type="text/plain")
 
-def delete_workspace(request, pk):
-    workspace = get_object_or_404(Workspace, pk=pk)
+@login_required
+def my_recordings(request):
+    user = request.user
 
-    # Check if the current user is an admin of this workspace
-    is_admin = WorkspaceMembership.objects.filter(
-        workspace=workspace,
-        user=request.user,
-        role='admin'
-    ).exists()
+    recordings = (
+        Recording.objects
+        .filter(meeting__participants=user)
+        .select_related("meeting")
+        .order_by("-created_at")
+    )
 
-    if not is_admin:
-        return HttpResponseForbidden("You are not allowed to delete this workspace.")
+    return render(request, "home/my_recordings.html", {
+        "recordings": recordings,
+    })
 
-    if request.method == 'POST':
-        workspace.delete()
-        return redirect('dashboard')
+@login_required
+def recording_detail(request, pk):
+    recording = get_object_or_404(Recording, pk=pk)
+    meeting = recording.meeting
+    user = request.user
 
-    return HttpResponseForbidden("Invalid request.")
+    is_participant = meeting.participants.filter(id=user.id).exists()
+    is_creator = (meeting.created_by_id == user.id)
+
+    if not (is_participant or is_creator):
+        messages.error(request, "You do not have access to this recording.")
+        return redirect("my_recordings")
+
+    chunks = meeting.chunks.order_by("created_at")
+
+    return render(request, "home/recording_detail.html", {
+        "recording": recording,
+        "meeting": meeting,
+        "chunks": chunks,
+    })
