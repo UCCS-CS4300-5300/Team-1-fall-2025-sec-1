@@ -1,0 +1,16 @@
+name: Reminder: avoid direct pushes to main
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print reminder
+        run: |
+          echo "Heads up: try not to push directly to main."
+          echo "Use a feature branch + Pull Request instead."
+          exit 1
