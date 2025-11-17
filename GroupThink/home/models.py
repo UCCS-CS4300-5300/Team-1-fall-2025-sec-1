@@ -166,3 +166,38 @@ class Recording(models.Model):
         return f"Recording #{self.id} for {self.meeting.title}"
 
 
+class ChatMessage(models.Model):
+    """Chat messages for team communication"""
+    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name='chat_messages')
+    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_messages')
+    message = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f"{self.sender.username} in {self.workspace.name}: {self.message[:50]}"
+
+
+class ChatAttachment(models.Model):
+    """File attachments for chat messages"""
+    chat_message = models.ForeignKey(ChatMessage, on_delete=models.CASCADE, related_name='attachments')
+    file = models.FileField(upload_to='chat_attachments/%Y/%m/%d/')
+    file_name = models.CharField(max_length=255)
+    file_size = models.IntegerField()  # Size in bytes
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.file_name} ({self.chat_message.id})"
+
+    def get_file_size_display(self):
+        """Return human-readable file size"""
+        size = self.file_size
+        for unit in ['B', 'KB', 'MB', 'GB']:
+            if size < 1024.0:
+                return f"{size:.1f} {unit}"
+            size /= 1024.0
+        return f"{size:.1f} TB"
+
+

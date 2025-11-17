@@ -43,4 +43,8 @@ urlpatterns = [
     # Recordings
     path("my-recordings/", views.my_recordings, name="my_recordings"),
     path("recordings/<int:pk>/", views.recording_detail, name="recording_detail"),
+
+    # Chat
+    path('workspace/<int:workspace_id>/chat/send/', views.send_chat_message, name='send_chat_message'),
+    path('workspace/<int:workspace_id>/chat/messages/', views.get_chat_messages, name='get_chat_messages'),
 ]
