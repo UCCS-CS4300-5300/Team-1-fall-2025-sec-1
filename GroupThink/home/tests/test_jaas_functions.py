@@ -10,7 +10,7 @@ class JaasFunctionTests(TestCase):
     @patch("home.jaas_functions.time.time", return_value=1000000)
     @patch.dict("os.environ", {
         "JAAS_APP_ID": "test_app_id",
-        "JAAS_API_KEY": "-----BEGIN PRIVATE KEY-----FAKEKEY-----END PRIVATE KEY-----",
+        "JAAS_PRIVATE_KEY": "-----BEGIN PRIVATE KEY-----FAKEKEY-----END PRIVATE KEY-----",
         "JAAS_API_KEY_ID": "fake_key_id"
     })
     def test_generate_token_builds_correct_payload(self, mock_time, mock_jwt_encode):

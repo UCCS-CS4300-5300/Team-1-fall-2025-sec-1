@@ -1,16 +1,12 @@
-# home/webhook_handlers.py
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone as dt_timezone
 from django.utils import timezone
 
 from .models import Meeting, Recording
 
-
 def _ts_to_dt(ts_ms):
-    """Convert Jitsi ms timestamp → aware datetime."""
     if not ts_ms:
         return None
-    return datetime.fromtimestamp(ts_ms / 1000.0, tz=timezone.utc)
-
+    return datetime.fromtimestamp(ts_ms / 1000.0, tz=dt_timezone.utc)
 
 def handle_recording_uploaded(fqn: str, data: dict):
     """
