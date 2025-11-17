@@ -6,7 +6,7 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from .recording_webhook_handlers import _ts_to_dt, handle_recording_uploaded
+from home.recording_webhook_handlers import _ts_to_dt, handle_recording_uploaded
 
 from home.models import (
     Meeting,
