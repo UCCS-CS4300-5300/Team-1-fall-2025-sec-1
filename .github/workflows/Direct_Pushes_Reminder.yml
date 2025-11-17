@@ -1,4 +1,4 @@
-name: Reminder: avoid direct pushes to main
+name: Reminder to avoid direct pushes to main
 
 on:
   push:
