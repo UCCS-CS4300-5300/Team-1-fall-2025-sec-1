@@ -267,3 +267,54 @@ class MyRecordingsViewTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         recordings = list(resp.context["recordings"])
         self.assertEqual(len(recordings), 0)
+
+class RecordingHandlerUnitTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.user = User.objects.create_user(
+            username="edgeuser", email="edge@example.com", password="pw"
+        )
+        self.meeting = Meeting.objects.create(
+            title="Edge Meeting",
+            room_name="edge-room",
+        )
+
+    def test_handle_recording_uploaded_no_fqn_does_nothing(self):
+        """
+        If fqn is empty/None, handle_recording_uploaded should return early
+        and not create any Recording rows.
+        """
+        data = {
+            "preAuthenticatedLink": "https://example.com/edge.mp4",
+            "durationSec": 10,
+        }
+
+        handle_recording_uploaded("", data)
+        self.assertEqual(Recording.objects.count(), 0)
+
+        handle_recording_uploaded(None, data)
+        self.assertEqual(Recording.objects.count(), 0)
+
+    def test_handle_recording_uploaded_missing_link_does_nothing(self):
+        """
+        If preAuthenticatedLink is missing from data, it should not create a Recording.
+        """
+        fqn = f"vpaas-magic-cookie/{self.meeting.room_name}"
+
+        # No preAuthenticatedLink key at all
+        data = {
+            "durationSec": 10,
+            "startTimestamp": None,
+            "endTimestamp": None,
+        }
+
+        handle_recording_uploaded(fqn, data)
+        self.assertEqual(Recording.objects.count(), 0)
+
+    def test_ts_to_dt_returns_none_for_falsy_timestamp(self):
+        """
+        _ts_to_dt should gracefully return None for falsy timestamps.
+        This hits the early-return branch.
+        """
+        self.assertIsNone(_ts_to_dt(None))
+        self.assertIsNone(_ts_to_dt(0))
