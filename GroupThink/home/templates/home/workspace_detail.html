@@ -198,18 +198,33 @@
     </div>
     {% endif %}
   </section>
-<!-- Old workspace footer
-  <div class="workspace-footer" style="display: flex; justify-content: center; align-items: center; gap: 16px; margin-top: 24px;">
-    <a href="{% url 'dashboard' %}" class="btn btn-secondary">Back to Dashboard</a>
-  
-    {% if membership.role == 'admin' %}
-    <button class="btn btn-danger" style="background: #e53e3e; color: white;"
-      onclick="alert('Delete Workspace button clicked.');">
-      Delete Workspace
-    </button>
-    {% endif %}
+
+  <!-- Group Chat Section (UI only) -->
+<section class="workspace-section" id="group-chat-section" style="margin-bottom: 24px;">
+  <h2>Team Chat</h2>
+  <div id="chat-log" style="
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 12px;
+    height: 300px;
+    overflow-y: auto;
+    background: #f9f9f9;
+    margin-bottom: 12px;
+  ">
+    <div style="padding:4px 0; color:#666;">[Chat messages will appear here]</div>
   </div>
--->
+  <div style="display: flex; gap: 8px;">
+    <input id="chat-message-input" type="text" placeholder="Type a message..." style="
+      flex: 1;
+      padding: 8px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    " disabled>
+    <button id="chat-message-submit" class="btn btn-primary" disabled>Send</button>
+  </div>
+</section>
+
+
 <div class="workspace-footer" style="display: flex; justify-content: center; align-items: center; gap: 16px; margin-top: 24px;">
   <a href="{% url 'dashboard' %}" class="btn btn-secondary">Back to Dashboard</a>
 
