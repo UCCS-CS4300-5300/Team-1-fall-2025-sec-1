@@ -19,6 +19,7 @@ urlpatterns = [
     path('workspace/<int:workspace_id>/', views.workspace_detail, name='workspace_detail'),
     path('workspace/<int:workspace_id>/toggle-code-visibility/', views.toggle_code_visibility, name='toggle_code_visibility'),
     path('workspace/<int:workspace_id>/remove-member/<int:user_id>/', views.remove_member, name='remove_member'),
+    path('workspace/<int:pk>/delete/', views.delete_workspace, name='delete_workspace'),
 
     # Meetings
     path('create_meeting/', views.create_meeting, name='create_meeting'),
@@ -36,9 +37,10 @@ urlpatterns = [
     # Webhooks
     path("webhooks/jaas/", views.jaas_webhook),
 
-    #Transcriptions
+    # Transcriptions
     path("transcripts/<str:room_name>/", views.get_transcript, name="get_transcript"),
 
-    #Delete Workspace
-    path('workspace/<int:pk>/delete/', views.delete_workspace, name='delete_workspace'),
+    # Recordings
+    path("my-recordings/", views.my_recordings, name="my_recordings"),
+    path("recordings/<int:pk>/", views.recording_detail, name="recording_detail"),
 ]

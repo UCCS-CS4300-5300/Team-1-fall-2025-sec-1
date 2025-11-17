@@ -1,0 +1,64 @@
+{% extends 'home/base.html' %}
+{% block title %}My Recordings - GroupThink{% endblock %}
+
+{% block content %}
+<main class="dashboard-container">
+  <!-- Header -->
+  <div class="dashboard-header">
+    <h1>My Recordings</h1>
+    <a href="{% url 'dashboard' %}" class="btn btn-secondary">Back to Dashboard</a>
+  </div>
+
+  {% if recordings %}
+    <!-- Info text -->
+    <section style="margin-bottom: 24px;">
+      <p style="color: #666; margin: 0;">
+        Recordings are available via Jitsi for 24 hours after upload.
+      </p>
+    </section>
+
+    <!-- Recordings list -->
+    <section style="display: flex; flex-direction: column; gap: 16px;">
+      {% for rec in recordings %}
+      <div class="workspace-card" style="display: flex; justify-content: space-between; align-items: center;">
+        <div style="flex: 1;">
+          <h3 style="margin: 0 0 4px 0;">{{ rec.meeting.title }}</h3>
+
+          {% if rec.started_at %}
+            <p style="color: #666; margin: 0; font-size: 14px;">
+              Recorded: {{ rec.started_at|date:"M d, Y H:i" }}
+              {% if rec.duration_sec %}
+                ({{ rec.duration_sec }}s)
+              {% endif %}
+            </p>
+          {% endif %}
+
+          <p style="color: #666; margin: 4px 0 0 0; font-size: 13px;">
+            Available until: {{ rec.expires_at|date:"M d, Y H:i" }}
+            {% if rec.is_expired %}
+              <span style="color: #e53e3e; font-weight: 600;">(expired)</span>
+            {% endif %}
+          </p>
+        </div>
+
+        <div>
+          {% if not rec.is_expired %}
+            <a href="{% url 'recording_detail' rec.id %}" class="btn">
+              View Recording
+            </a>
+          {% else %}
+            <span style="color:#999; font-size: 14px;">Link expired</span>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </section>
+
+  {% else %}
+    <div class="empty-state">
+      <p>You don't have any recordings yet.</p>
+      <p>Recordings from meetings you join will appear here.</p>
+    </div>
+  {% endif %}
+</main>
+{% endblock %}
