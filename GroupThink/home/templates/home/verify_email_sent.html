@@ -1,0 +1,35 @@
+{% extends 'home/base.html' %}
+{% block title %}Verify Your Email - GroupThink{% endblock %}
+
+{% block content %}
+<main class="auth-container">
+  <div class="auth-box" style="text-align: center;">
+    <svg style="width: 64px; height: 64px; margin-bottom: 20px; color: #4f46e5;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+    </svg>
+
+    <h1 class="auth-title">Check Your Email!</h1>
+    <p class="auth-subtitle">Almost there, {{ username }}!</p>
+
+    <div style="background: #f8f9fa; border-left: 4px solid #4f46e5; padding: 15px 20px; margin: 30px 0; border-radius: 4px; text-align: left;">
+      <p style="margin: 0; font-size: 14px; color: #666; margin-bottom: 5px;">Verification email sent to:</p>
+      <p style="margin: 0; font-weight: 600; color: #333; font-size: 16px;">{{ email }}</p>
+    </div>
+
+    <p style="color: #555; font-size: 15px; line-height: 1.6; margin: 20px 0; text-align: left;">
+      Click the verification link in the email to activate your account and start using GroupThink!
+    </p>
+
+    <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px; padding: 15px; margin: 30px 0; text-align: left;">
+      <p style="margin: 0; color: #856404; font-size: 14px; line-height: 1.5;">
+        <strong>📧 Didn't receive the email?</strong><br>
+        Check your spam folder or wait a few minutes.
+      </p>
+    </div>
+
+    <div class="auth-footer">
+      <p>Already verified? <a href="{% url 'login' %}">Log in here</a></p>
+    </div>
+  </div>
+</main>
+{% endblock %}
