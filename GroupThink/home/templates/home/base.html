@@ -22,7 +22,10 @@
       </ul>
       {% if user.is_authenticated %}
       <div style="margin-left: auto; display: flex; align-items: center; gap: 16px;">
-        <span style="color: #fff; font-weight: 600;">{{ user.profile.display_name }}</span>
+        <a href="{% url 'profile' %}" class="btn btn-login" 
+           style="background: #4a4aef; padding: 6px 12px; border-radius: 6px; text-decoration: none; color: #fff; font-weight: 600;">
+          {{ user.profile.display_name }}
+        </a>
         <a class="btn btn-login" href="{% url 'logout' %}">Logout</a>
       </div>
       {% else %}

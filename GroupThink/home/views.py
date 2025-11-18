@@ -8,6 +8,9 @@ from django.views.decorators.csrf import csrf_exempt
 from django.http import HttpResponse, JsonResponse, HttpResponseForbidden
 from .meeting_ai import extract_tasks_from_meeting
 from .recording_webhook_handlers import handle_recording_uploaded
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import redirect
+from django.contrib import messages
 
 # from django.core.mail import send_mail  # For future email verification
 # from django.conf import settings  # For future email verification
@@ -905,3 +908,14 @@ def get_chat_messages(request, workspace_id):
         })
 
     return JsonResponse({'messages': messages_data})
+
+def profile_view(request):
+    return render(request, "home/profile.html")
+
+@login_required
+def delete_account(request):
+    user = request.user
+    user.delete()
+
+    messages.success(request, "Your account has been deleted.")
+    return redirect('home')   # or whatever your landing page is

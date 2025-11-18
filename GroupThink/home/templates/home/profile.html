@@ -1,0 +1,41 @@
+{% extends 'home/base.html' %}
+{% block title %}My Profile - GroupThink{% endblock %}
+
+{% block content %}
+<main class="dashboard-container" style="max-width: 700px; margin: 40px auto;">
+
+  <h1 style="margin-bottom: 20px;">My Profile</h1>
+
+  <div class="profile-card" 
+       style="background: #ffffff; padding: 24px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+
+    <h2 style="margin-bottom: 10px;">Account Details</h2>
+
+    <p><strong>Display Name:</strong> {{ user.profile.display_name }}</p>
+    <p><strong>Username:</strong> {{ user.username }}</p>
+    <p><strong>Email:</strong> {{ user.email }}</p>
+
+    <hr style="margin: 20px 0;">
+
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+
+      <!-- Temporary button for changing password -->
+
+      <a href="{% url 'password_change' %}" 
+        class="btn" 
+        style="background: #4a4aef; color: white; padding: 10px 16px; text-align: center; border-radius: 6px; text-decoration: none; font-weight: 600;">
+        Change Password
+      </a>
+
+
+      <!-- Temporary button for deleting account -->
+      <a href="#"
+         class="btn" 
+         style="background: #d9534f; color: white; padding: 10px 16px; text-align: center; border-radius: 6px; text-decoration: none; font-weight: 600;">
+        Delete Account
+      </a>
+
+    </div>
+  </div>
+</main>
+{% endblock %}
