@@ -3,12 +3,12 @@ gunicorn
 whitenoise
 PyJWT
 python-dotenv
-dj-database-url        # if/when you use Postgres
-psycopg2-binary        # if/when you use Postgres
+dj-database-url
+psycopg2-binary 
 pytest
 pytest-django
 pytest-cov
 cryptography
 openai>=1.0.0
 anthropic
-django-anymail         # Email backend for Brevo API
+django-anymail
