@@ -19,7 +19,9 @@ from .models import (
     WorkspaceMembership,
     Task,
     MeetingTranscriptChunk,
-    Recording
+    Recording,
+    ChatMessage,
+    ChatAttachment
 )
 from .forms import (
     SignUpForm,
@@ -806,3 +808,100 @@ def recording_detail(request, pk):
         "meeting": meeting,
         "chunks": chunks,
     })
+
+
+# ============ CHAT FUNCTIONALITY ============
+
+@login_required
+def send_chat_message(request, workspace_id):
+    """Send a chat message to workspace (with optional file attachment)"""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST request required'}, status=400)
+
+    workspace = get_object_or_404(Workspace, id=workspace_id)
+
+    # Check if user is a member
+    membership = WorkspaceMembership.objects.filter(user=request.user, workspace=workspace).first()
+    if not membership:
+        return JsonResponse({'error': 'You are not a member of this workspace'}, status=403)
+
+    message_text = request.POST.get('message', '').strip()
+    uploaded_file = request.FILES.get('file')
+
+    # Validate that there's either a message or a file
+    if not message_text and not uploaded_file:
+        return JsonResponse({'error': 'Message or file required'}, status=400)
+
+    # If no message text but there's a file, use a default message
+    if not message_text and uploaded_file:
+        message_text = f"[File: {uploaded_file.name}]"
+
+    # Create the chat message
+    chat_message = ChatMessage.objects.create(
+        workspace=workspace,
+        sender=request.user,
+        message=message_text
+    )
+
+    # Handle file upload if present
+    if uploaded_file:
+        # Check file size (10MB = 10 * 1024 * 1024 bytes)
+        max_size = 10 * 1024 * 1024
+        if uploaded_file.size > max_size:
+            chat_message.delete()
+            return JsonResponse({'error': 'File size exceeds 10MB limit'}, status=400)
+
+        # Create attachment
+        ChatAttachment.objects.create(
+            chat_message=chat_message,
+            file=uploaded_file,
+            file_name=uploaded_file.name,
+            file_size=uploaded_file.size
+        )
+
+    return JsonResponse({
+        'success': True,
+        'message_id': chat_message.id,
+        'sender': request.user.profile.display_name,
+        'message': chat_message.message,
+        'timestamp': chat_message.created_at.strftime('%b %d, %Y %I:%M %p')
+    })
+
+
+@login_required
+def get_chat_messages(request, workspace_id):
+    """Get all chat messages for a workspace"""
+    workspace = get_object_or_404(Workspace, id=workspace_id)
+
+    # Check if user is a member
+    membership = WorkspaceMembership.objects.filter(user=request.user, workspace=workspace).first()
+    if not membership:
+        return JsonResponse({'error': 'You are not a member of this workspace'}, status=403)
+
+    # Get messages after a certain ID if provided (for polling)
+    since_id = request.GET.get('since_id', 0)
+    messages_qs = workspace.chat_messages.filter(id__gt=since_id).select_related('sender', 'sender__profile')
+
+    messages_data = []
+    for msg in messages_qs:
+        # Get attachments for this message
+        attachments = []
+        for attachment in msg.attachments.all():
+            attachments.append({
+                'id': attachment.id,
+                'file_name': attachment.file_name,
+                'file_url': attachment.file.url,
+                'file_size': attachment.get_file_size_display()
+            })
+
+        messages_data.append({
+            'id': msg.id,
+            'sender': msg.sender.profile.display_name,
+            'sender_username': msg.sender.username,
+            'message': msg.message,
+            'timestamp': msg.created_at.strftime('%b %d, %Y %I:%M %p'),
+            'attachments': attachments,
+            'is_own_message': msg.sender == request.user
+        })
+
+    return JsonResponse({'messages': messages_data})
