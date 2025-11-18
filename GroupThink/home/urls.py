@@ -1,5 +1,7 @@
 from django.urls import path
 from . import views
+from django.urls import reverse_lazy
+from django.contrib.auth import views as auth_views
 
 urlpatterns = [
     # Homepage
@@ -14,6 +16,13 @@ urlpatterns = [
 
     # Dashboard
     path('dashboard/', views.dashboard, name='dashboard'),
+
+    # Profile
+    path("profile/", views.profile_view, name="profile"),
+    # Password Change
+    path('password_change/', auth_views.PasswordChangeView.as_view(template_name='home/password_change.html', success_url=reverse_lazy('profile')), name='password_change'),
+    # Delete Account
+    path('delete_account/', views.delete_account, name='delete_account'),
 
     # Workspaces/Teams
     path('workspace/create/', views.create_workspace, name='create_workspace'),
