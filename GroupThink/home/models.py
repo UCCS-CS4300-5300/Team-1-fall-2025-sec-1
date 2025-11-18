@@ -6,6 +6,23 @@ from django.utils import timezone
 import uuid
 
 
+class PendingUser(models.Model):
+    """Temporary storage for user signups awaiting email verification"""
+    username = models.CharField(max_length=150, unique=True)
+    email = models.EmailField(unique=True)
+    password_hash = models.CharField(max_length=128)  # Store hashed password
+    display_name = models.CharField(max_length=100)
+    verification_token = models.CharField(max_length=100, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()  # Auto-delete after 24 hours
+
+    def __str__(self):
+        return f"Pending: {self.username} ({self.email})"
+
+    def is_expired(self):
+        return timezone.now() >= self.expires_at
+
+
 class UserProfile(models.Model):
     """Extended user profile with additional information"""
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')

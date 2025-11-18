@@ -21,7 +21,9 @@ class AuthenticationTestCase(TestCase):
         self.assertTemplateUsed(response, 'home/signup.html')
 
     def test_signup_creates_user_and_profile(self):
-        """Test successful user registration"""
+        """Test successful user registration with email verification"""
+        from home.models import PendingUser
+
         data = {
             'username': 'testuser',
             'email': 'test@example.com',
@@ -31,17 +33,18 @@ class AuthenticationTestCase(TestCase):
         }
         response = self.client.post(reverse('signup'), data)
 
-        # Check redirect
-        self.assertRedirects(response, reverse('login'))
+        # Should show verify email page, not redirect
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'home/verify_email_sent.html')
 
-        # Check user created
-        user = User.objects.get(username='testuser')
-        self.assertEqual(user.email, 'test@example.com')
+        # Check PendingUser created (not User yet)
+        pending_user = PendingUser.objects.get(username='testuser')
+        self.assertEqual(pending_user.email, 'test@example.com')
+        self.assertEqual(pending_user.display_name, 'Test User')
+        self.assertTrue(len(pending_user.verification_token) > 0)
 
-        # Check profile created
-        profile = UserProfile.objects.get(user=user)
-        self.assertEqual(profile.display_name, 'Test User')
-        self.assertFalse(profile.email_verified)
+        # Check User NOT created yet (requires email verification)
+        self.assertEqual(User.objects.filter(username='testuser').count(), 0)
 
     def test_signup_password_validation(self):
         """Test password strength requirements"""

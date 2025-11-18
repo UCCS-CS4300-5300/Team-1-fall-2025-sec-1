@@ -1,0 +1,20 @@
+Welcome to GroupThink!
+
+Hi {{ username }},
+
+Thank you for signing up! We're excited to have you join our collaborative platform.
+
+To get started and access all features, please verify your email address by clicking the link below:
+
+{{ verification_link }}
+
+This verification link will expire in 24 hours for security reasons.
+
+If you didn't create a GroupThink account, you can safely ignore this email.
+
+Best regards,
+The GroupThink Team
+
+---
+This is an automated message, please do not reply to this email.
+© 2025 GroupThink. All rights reserved.

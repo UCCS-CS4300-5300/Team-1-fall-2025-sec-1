@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'anymail',
     'home',
 ]
 
@@ -154,3 +155,23 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 # OpenAI configuration
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+
+# Email Configuration using Brevo API (via django-anymail)
+# Brevo provides 300 free emails/day with API key
+
+# Check if Brevo API key is configured
+if os.getenv('BREVO_API_KEY'):
+    # Use Brevo via Anymail (API-based, more reliable than SMTP)
+    EMAIL_BACKEND = 'anymail.backends.brevo.EmailBackend'
+    ANYMAIL = {
+        "BREVO_API_KEY": os.getenv('BREVO_API_KEY'),
+    }
+    print(f"Using Brevo API via django-anymail")
+else:
+    # Fallback to console backend for local testing
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+    print("Using console email backend (emails will print to terminal)")
+
+# Email settings
+DEFAULT_FROM_EMAIL = 'verifyemailnorep@gmail.com'
+EMAIL_TIMEOUT = 10
