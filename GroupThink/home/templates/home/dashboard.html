@@ -11,6 +11,26 @@
     </div>
   </div>
 
+  <!-- Email Verification Banner -->
+  {% if not user_profile.email_verified %}
+  <div style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-left: 4px solid #f59e0b; padding: 16px 20px; margin: 20px 0; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <svg style="width: 24px; height: 24px; color: #d97706; flex-shrink: 0;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+      </svg>
+      <div>
+        <p style="margin: 0; font-weight: 600; color: #92400e; font-size: 14px;">Email Not Verified</p>
+        <p style="margin: 4px 0 0 0; color: #78350f; font-size: 13px;">Please verify your email address to access all features and ensure account security.</p>
+      </div>
+    </div>
+    <form method="get" action="{% url 'resend_verification_email' %}" style="margin: 0;">
+      <button type="submit" style="background: #f59e0b; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-weight: 600; font-size: 14px; cursor: pointer; white-space: nowrap; transition: background 0.2s;">
+        Resend Email
+      </button>
+    </form>
+  </div>
+  {% endif %}
+
   <!-- Teams Section -->
   <section class="workspaces-section">
     <h2>Your Teams</h2>

@@ -4,8 +4,10 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.contrib import messages
 from django.utils.crypto import get_random_string
+from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.http import HttpResponse, JsonResponse, HttpResponseForbidden
+from datetime import timedelta
 from .meeting_ai import extract_tasks_from_meeting
 from .recording_webhook_handlers import handle_recording_uploaded
 from django.contrib.auth.decorators import login_required
@@ -24,7 +26,8 @@ from .models import (
     MeetingTranscriptChunk,
     Recording,
     ChatMessage,
-    ChatAttachment
+    ChatAttachment,
+    PendingUser
 )
 from .forms import (
     SignUpForm,
@@ -57,33 +60,77 @@ def signup_view(request):
     if request.method == 'POST':
         form = SignUpForm(request.POST)
         if form.is_valid():
-            # Create user but don't activate yet
-            user = form.save(commit=False)
-            user.email = form.cleaned_data['email']
-            user.is_active = True  # For now, skip email verification
-            user.save()
+            from django.contrib.auth.hashers import make_password
+            from datetime import timedelta
+            from .models import PendingUser
 
-            # Create user profile
+            username = form.cleaned_data['username']
+            email = form.cleaned_data['email']
+            display_name = form.cleaned_data['display_name']
+            password = form.cleaned_data['password1']
+
+            # Check if username or email already exists (in User or PendingUser)
+            if User.objects.filter(username=username).exists():
+                messages.error(request, 'Username already taken.')
+                return render(request, 'home/signup.html', {'form': form})
+
+            if User.objects.filter(email=email).exists():
+                messages.error(request, 'Email already registered.')
+                return render(request, 'home/signup.html', {'form': form})
+
+            # Delete any existing pending user with same username or email
+            PendingUser.objects.filter(username=username).delete()
+            PendingUser.objects.filter(email=email).delete()
+
+            # Create pending user (NOT a real user yet)
             verification_token = get_random_string(64)
-            UserProfile.objects.create(
-                user=user,
-                display_name=form.cleaned_data['display_name'],
+            pending_user = PendingUser.objects.create(
+                username=username,
+                email=email,
+                password_hash=make_password(password),  # Hash the password
+                display_name=display_name,
                 verification_token=verification_token,
-                email_verified=False  # Will implement email verification
+                expires_at=timezone.now() + timedelta(hours=24)
             )
 
-            # Send verification email (placeholder for now)
-            # TODO: Implement actual email verification
-            # verification_link = request.build_absolute_uri(f'/verify-email/{verification_token}/')
-            # send_mail(
-            #     'Verify your GroupThink account',
-            #     f'Click here to verify: {verification_link}',
-            #     settings.DEFAULT_FROM_EMAIL,
-            #     [user.email],
-            # )
+            # Send verification email
+            from django.core.mail import EmailMultiAlternatives
+            from django.template.loader import render_to_string
+            from django.conf import settings
 
-            messages.success(request, 'Account created successfully! You can now log in.')
-            return redirect('login')
+            verification_link = request.build_absolute_uri(f'/verify-email/{verification_token}/')
+
+            # Context for email templates
+            context = {
+                'username': username,
+                'verification_link': verification_link,
+            }
+
+            # Render email templates
+            text_content = render_to_string('home/emails/verification_email.txt', context)
+            html_content = render_to_string('home/emails/verification_email.html', context)
+
+            # Send email with both text and HTML versions
+            try:
+                email_obj = EmailMultiAlternatives(
+                    subject='Verify your GroupThink account',
+                    body=text_content,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    to=[email],
+                )
+                email_obj.attach_alternative(html_content, "text/html")
+                email_obj.send()
+
+                # Redirect to "verify your email" page
+                return render(request, 'home/verify_email_sent.html', {
+                    'username': username,
+                    'email': email,
+                })
+            except Exception as e:
+                # Delete pending user if email fails
+                pending_user.delete()
+                messages.error(request, f'Could not send verification email. Error: {str(e)}')
+                return render(request, 'home/signup.html', {'form': form})
     else:
         form = SignUpForm()
 
@@ -113,7 +160,16 @@ def login_view(request):
             else:
                 username = username_or_email
 
-            # Authenticate user
+            # Check if user exists but is inactive (unverified email)
+            try:
+                user_check = User.objects.get(username=username)
+                if not user_check.is_active:
+                    messages.error(request, 'Please verify your email address before logging in. Check your inbox for the verification link.')
+                    return render(request, 'home/login.html', {'form': form})
+            except User.DoesNotExist:
+                pass
+
+            # Authenticate user (only works for active users)
             user = authenticate(request, username=username, password=password)
 
             if user is not None:
@@ -919,3 +975,99 @@ def delete_account(request):
 
     messages.success(request, "Your account has been deleted.")
     return redirect('home')   # or whatever your landing page is
+
+# ============ EMAIL VERIFICATION VIEWS ============
+
+def verify_email(request, token):
+    """Verify user's email address using the token - creates actual user account"""
+    from .models import PendingUser
+
+    try:
+        # Look for pending user with this token
+        pending_user = PendingUser.objects.get(verification_token=token)
+
+        # Check if token expired
+        if pending_user.is_expired():
+            pending_user.delete()
+            messages.error(request, 'Verification link has expired. Please sign up again.')
+            return redirect('signup')
+
+        # Create the actual User account
+        user = User.objects.create(
+            username=pending_user.username,
+            email=pending_user.email
+        )
+        user.password = pending_user.password_hash  # Use pre-hashed password
+        user.is_active = True
+        user.save()
+
+        # Create user profile
+        UserProfile.objects.create(
+            user=user,
+            display_name=pending_user.display_name,
+            email_verified=True,  # Already verified
+            verification_token=''
+        )
+
+        # Delete pending user
+        pending_user.delete()
+
+        # Auto-login the user
+        login(request, user)
+
+        messages.success(request, f'Welcome to GroupThink, {pending_user.display_name}! Your account has been created and verified.')
+        return redirect('dashboard')
+
+    except PendingUser.DoesNotExist:
+        # Maybe it's an old verification link for already-verified user?
+        messages.error(request, 'Invalid or expired verification link.')
+        return redirect('signup')
+
+
+@login_required
+def resend_verification_email(request):
+    """Resend verification email to the user"""
+    from django.core.mail import EmailMultiAlternatives
+    from django.template.loader import render_to_string
+    from django.conf import settings
+
+    profile = request.user.profile
+
+    if profile.email_verified:
+        messages.info(request, 'Your email is already verified!')
+        return redirect('dashboard')
+
+    # Generate new token
+    verification_token = get_random_string(64)
+    profile.verification_token = verification_token
+    profile.save()
+
+    # Build verification link
+    verification_link = request.build_absolute_uri(f'/verify-email/{verification_token}/')
+
+    # Context for email templates
+    context = {
+        'username': request.user.username,
+        'verification_link': verification_link,
+    }
+
+    # Render email templates
+    text_content = render_to_string('home/emails/verification_email.txt', context)
+    html_content = render_to_string('home/emails/verification_email.html', context)
+
+    # Send email with both text and HTML versions
+    try:
+        email = EmailMultiAlternatives(
+            subject='Verify your GroupThink account',
+            body=text_content,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[request.user.email],
+        )
+        email.attach_alternative(html_content, "text/html")
+        email.send()
+
+        messages.success(request, 'Verification email sent! Please check your inbox.')
+    except Exception as e:
+        messages.error(request, f'Failed to send email: {str(e)}')
+
+    return redirect('dashboard')
