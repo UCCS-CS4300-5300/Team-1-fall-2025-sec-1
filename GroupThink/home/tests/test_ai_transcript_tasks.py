@@ -698,7 +698,7 @@ class GetClientTestCase(TestCase):
         
         # Call 
         
-        .-*-* 568        client1 = get_client()
+        client1 = get_client()
         client2 = get_client()
         
         # Should only create once
