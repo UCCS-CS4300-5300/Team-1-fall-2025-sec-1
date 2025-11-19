@@ -704,3 +704,6 @@ class GetClientTestCase(TestCase):
         # Should only create once
         self.assertEqual(mock_anthropic.call_count, 1)
         self.assertEqual(client1, client2)
+
+        #testing CD pipeline
+        
