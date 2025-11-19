@@ -69,15 +69,28 @@
         };
 
         const api = new JitsiMeetExternalAPI(domain, options);
+        const endMeetingForm = document.getElementById('end-meeting-form');
 
-        // When user closes the meeting, redirect to dashboard
-        api.addListener('readyToClose', function() {
-            window.location.href = '{% url "dashboard" %}';
+        let is_recording = false;
+
+        // Gets participants ID and also auto toggles subtitles.
+        api.addEventListener('videoConferenceJoined', (info) => {
+            api.executeCommand('toggleSubtitles');
         });
 
-        // Automatically enable subtitles (transcription captions)
-        api.addEventListener('videoConferenceJoined', () => {
-        api.executeCommand('toggleSubtitles');
+        // Listener for when anything happens to the recording status.
+        api.addListener('recordingStatusChanged', (event) => {
+            if (event.status === 'on' || event.on) {
+                is_recording = true;
+            }
+            else {
+                is_recording = false;
+            }
+        });
+
+        // When user closes the meeting, redirect to dashboard
+        api.addListener('readyToClose', async function() {
+            window.location.href = '{% url "dashboard" %}';
         });
 
         async function fetchTranscript() {
@@ -86,6 +99,23 @@
         }
         setInterval(fetchTranscript, 3000);
         fetchTranscript();
+
+        // When end meeting button hit, stop all recordings instantly.
+        async function stopRecordingAlways() {
+            if (!is_recording) {
+                return;
+            }
+
+            try {
+                api.executeCommand('stopRecording', 'file');
+                console.log("End Meeting: requested recording stop.");
+            } 
+            catch (err) {
+                console.error("Error stopping recording:", err);
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 1500));
+        }
 
         // Handle Mark as Live - reload page to show LIVE badge
         document.getElementById('mark-live-form').addEventListener('submit', function(e) {
@@ -110,6 +140,19 @@
           membersBtn.onclick = () => { membersModal.style.display = 'flex'; };
           closeMembersModal.onclick = () => { membersModal.style.display = 'none'; };
           membersModal.onclick = (e) => { if (e.target === membersModal) membersModal.style.display = 'none'; };
+        }
+
+        // Intercept End Meeting button, make sure recording stops first.
+        if (endMeetingForm) {
+            endMeetingForm.addEventListener('submit', async function(e) {
+                e.preventDefault();     
+
+                // Always stop recording if active
+                await stopRecordingAlways();
+
+                // Now submit form normally
+                endMeetingForm.submit();
+            });
         }
 
         // End Meeting redirects to dashboard (default form behavior)
