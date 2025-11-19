@@ -696,8 +696,9 @@ class GetClientTestCase(TestCase):
         import home.meeting_ai
         home.meeting_ai._client = None
         
-        # Call twice
-        client1 = get_client()
+        # Call 
+        
+        .-*-* 568        client1 = get_client()
         client2 = get_client()
         
         # Should only create once
