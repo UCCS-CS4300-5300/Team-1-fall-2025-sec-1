@@ -19,23 +19,104 @@
 
     <div style="display: flex; flex-direction: column; gap: 12px;">
 
-      <!-- Temporary button for changing password -->
-
+      <!-- Change Password Button -->
       <a href="{% url 'password_change' %}" 
         class="btn" 
-        style="background: #4a4aef; color: white; padding: 10px 16px; text-align: center; border-radius: 6px; text-decoration: none; font-weight: 600;">
+        style="background: #4a4aef; color: white; padding: 10px 16px; 
+               text-align: center; border-radius: 6px; text-decoration: none; 
+               font-weight: 600; width: 100%;">
         Change Password
       </a>
 
-
-      <!-- Temporary button for deleting accounht -->
-      <a href="#"
-         class="btn" 
-         style="background: #d9534f; color: white; padding: 10px 16px; text-align: center; border-radius: 6px; text-decoration: none; font-weight: 600;">
+      <!-- Delete Account Button (opens modal) -->
+      <button type="button"
+              id="deleteAccountBtn"
+              class="btn"
+              style="background: #d9534f; color: white; padding: 10px 16px; 
+                     text-align: center; border-radius: 6px; font-weight: 600; 
+                     width: 100%;">
         Delete Account
-      </a>
+      </button>
 
     </div>
   </div>
+
+  <!-- Footer buttons -->
+  <div class="profile-footer" 
+      style="display: flex; justify-content: center; align-items: center; gap: 16px; margin-top: 24px;">
+    <a href="{% url 'dashboard' %}" class="btn btn-secondary">Back to Dashboard</a>
+  </div>
+
 </main>
+
+<!-- Modal overlay -->
+<div id="deleteAccountModal" style="
+  display: none;
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px);
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+">
+  <div style="
+    background: white;
+    border-radius: 12px;
+    padding: 24px;
+    width: 90%;
+    max-width: 400px;
+    text-align: center;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  ">
+    <h2 style="margin-bottom: 12px;">Confirm Account Deletion</h2>
+
+    <p>Type your username "<strong>{{ user.username }}</strong>" to confirm deletion.</p>
+
+    <input type="text" id="confirmAccountInput" placeholder="Enter username" style="
+      width: 100%;
+      padding: 8px;
+      margin-top: 12px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    ">
+
+    <div style="margin-top: 16px; display: flex; justify-content: center; gap: 12px;">
+      <button id="cancelAccountDelete" class="btn btn-secondary">Cancel</button>
+
+      <form id="deleteAccountForm" method="post" action="{% url 'delete_account' %}">
+        {% csrf_token %}
+        <button 
+          type="submit" 
+          id="confirmAccountDeleteBtn" 
+          class="btn btn-danger" 
+          style="background: #e53e3e; color: white;" 
+          disabled>
+          Delete
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+// Open modal
+document.getElementById("deleteAccountBtn").addEventListener("click", function() {
+  document.getElementById("deleteAccountModal").style.display = "flex";
+});
+
+// Close modal
+document.getElementById("cancelAccountDelete").addEventListener("click", function() {
+  document.getElementById("deleteAccountModal").style.display = "none";
+});
+
+// Enable delete button when input matches username
+document.getElementById("confirmAccountInput").addEventListener("input", function() {
+  const input = this.value.trim();
+  const required = "{{ user.username }}";
+  document.getElementById("confirmAccountDeleteBtn").disabled = input !== required;
+});
+</script>
+
 {% endblock %}

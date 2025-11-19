@@ -970,11 +970,11 @@ def profile_view(request):
 
 @login_required
 def delete_account(request):
-    user = request.user
-    user.delete()
-
-    messages.success(request, "Your account has been deleted.")
-    return redirect('home')   # or whatever your landing page is
+    if request.method == "POST":
+        user = request.user
+        logout(request)
+        user.delete()
+        return redirect('index')
 
 # ============ EMAIL VERIFICATION VIEWS ============
 
