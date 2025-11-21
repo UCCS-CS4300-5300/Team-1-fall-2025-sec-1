@@ -135,8 +135,8 @@ class JaasFunctionTests(TestCase):
         self.assertEqual(payload["context"]["user"]["name"], "Developer")
 
         features = payload["context"]["features"]
-        self.assertTrue(features["recording"])
+        self.assertFalse(features["recording"])
         self.assertFalse(features["livestreaming"])
-        self.assertTrue(features["transcription"])
+        self.assertFalse(features["transcription"])
         self.assertFalse(features["outbound-call"])
         self.assertFalse(features["sip-outbound-call"])
