@@ -265,6 +265,20 @@
     return div.innerHTML;
   }
 
+  // Format ISO timestamp to local timezone
+  function formatTimestamp(isoString) {
+    const date = new Date(isoString);
+    const options = {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    };
+    return date.toLocaleString('en-US', options);
+  }
+
   // Render a chat message
   function renderMessage(msg) {
     const messageDiv = document.createElement('div');
@@ -283,7 +297,7 @@
     sender.style.color = '#333';
 
     const timestamp = document.createElement('span');
-    timestamp.textContent = msg.timestamp;
+    timestamp.textContent = formatTimestamp(msg.timestamp);
     timestamp.style.color = '#999';
 
     header.appendChild(sender);

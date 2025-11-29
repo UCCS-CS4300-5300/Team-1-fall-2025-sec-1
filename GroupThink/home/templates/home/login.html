@@ -28,7 +28,10 @@
 
       <!-- Password -->
       <div class="form-group">
-        <label for="{{ form.password.id_for_label }}">Password</label>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <label for="{{ form.password.id_for_label }}">Password</label>
+          <a href="{% url 'password_reset' %}" style="font-size: 14px; color: var(--brand); text-decoration: none;">Forgot password?</a>
+        </div>
         {{ form.password }}
         {% if form.password.errors %}
         <div class="field-error">{{ form.password.errors.0 }}</div>

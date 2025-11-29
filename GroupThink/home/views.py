@@ -923,7 +923,7 @@ def send_chat_message(request, workspace_id):
         'message_id': chat_message.id,
         'sender': request.user.profile.display_name,
         'message': chat_message.message,
-        'timestamp': chat_message.created_at.strftime('%b %d, %Y %I:%M %p')
+        'timestamp': chat_message.created_at.isoformat()  # Send ISO format for client-side timezone conversion
     })
 
 
@@ -958,7 +958,7 @@ def get_chat_messages(request, workspace_id):
             'sender': msg.sender.profile.display_name,
             'sender_username': msg.sender.username,
             'message': msg.message,
-            'timestamp': msg.created_at.strftime('%b %d, %Y %I:%M %p'),
+            'timestamp': msg.created_at.isoformat(),  # Send ISO format for client-side timezone conversion
             'attachments': attachments,
             'is_own_message': msg.sender == request.user
         })

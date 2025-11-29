@@ -20,12 +20,21 @@
     <div style="display: flex; flex-direction: column; gap: 12px;">
 
       <!-- Change Password Button -->
-      <a href="{% url 'password_change' %}" 
-        class="btn" 
-        style="background: #4a4aef; color: white; padding: 10px 16px; 
-               text-align: center; border-radius: 6px; text-decoration: none; 
+      <a href="{% url 'password_change' %}"
+        class="btn"
+        style="background: #4a4aef; color: white; padding: 10px 16px;
+               text-align: center; border-radius: 6px; text-decoration: none;
                font-weight: 600; width: 100%;">
         Change Password
+      </a>
+
+      <!-- Reset Password via Email Button -->
+      <a href="{% url 'password_reset' %}"
+        class="btn"
+        style="background: #6b7280; color: white; padding: 10px 16px;
+               text-align: center; border-radius: 6px; text-decoration: none;
+               font-weight: 600; width: 100%;">
+        Reset Password via Email
       </a>
 
       <!-- Delete Account Button (opens modal) -->
