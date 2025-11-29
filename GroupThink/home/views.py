@@ -773,15 +773,15 @@ def jaas_webhook(request):
     except Exception:
         raw = ""
     print("WEBHOOK RAW:", raw[:400])
-
+    
     try:
         payload = json.loads(raw or "{}")
     except Exception as e:
         print("WEBHOOK JSON ERROR:", repr(e))
         payload = {}
-
+    
     event = payload.get("eventType")
-
+    
     # ---- ROOM IDENT ----
     data = payload.get("data") or {}
     # fqn is TOP-LEVEL in your logs; keep robust fallbacks too
@@ -793,28 +793,40 @@ def jaas_webhook(request):
         or data.get("room")             
         or ""
     ).strip()
-
+    
     room_slug = room_full.rsplit("/", 1)[-1] if room_full else ""
-
+    
     # ---- TEXT ----
     text = (data.get("final") or data.get("stable") or data.get("text") or "").strip()
     participant = data.get("participant") or {}
     speaker = participant.get("name") or participant.get("id") or ""
-
+    
     print(f"WEBHOOK PARSED: event={event!r} slug={room_slug!r} text_head={text[:80]!r}")
-
-    if event == "TRANSCRIPTION_CHUNK_RECEIVED" and room_slug and text:
-        from .models import Meeting
-        m = Meeting.objects.filter(room_name=room_slug).first()
-        if not m:
-            print("WEBHOOK NO MEETING:", room_slug)
-        else:
-            m.chunks.create(text=text, speaker=speaker)
-            print("WEBHOOK SAVED → meeting_id:", m.id)
-
+    
+    if event == "TRANSCRIPTION_CHUNK_RECEIVED" and room_slug:
+        if text:  # Only if there's actual text
+            from .models import Meeting
+            m = Meeting.objects.filter(room_name=room_slug).first()
+            if not m:
+                print("WEBHOOK NO MEETING:", room_slug)
+            else:
+                # Check if this is a duplicate of the last chunk (same speaker, similar text)
+                last_chunk = m.chunks.order_by('-created_at').first()
+                is_duplicate = (
+                    last_chunk and 
+                    last_chunk.speaker == speaker and 
+                    last_chunk.text == text
+                )
+                
+                if not is_duplicate:
+                    m.chunks.create(text=text, speaker=speaker)
+                    print("WEBHOOK SAVED → meeting_id:", m.id)
+                else:
+                    print("WEBHOOK SKIPPED DUPLICATE")
+    
     if event == "RECORDING_UPLOADED":
         handle_recording_uploaded(room_full, data)
-
+    
     return JsonResponse({"ok": True})
 
 # Grabs transcript data to send to live transcription text box
