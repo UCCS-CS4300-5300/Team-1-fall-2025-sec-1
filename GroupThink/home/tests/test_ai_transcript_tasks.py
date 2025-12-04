@@ -7,7 +7,11 @@ from django.utils import timezone
 from unittest.mock import patch, Mock
 import json
 from datetime import date, timedelta
-
+from unittest.mock import patch, Mock, call
+from unittest import skipIf
+from django.conf import settings
+import threading
+import time
 
 class MeetingTranscriptChunkTestCase(TestCase):
     """Test MeetingTranscriptChunk model"""
@@ -705,5 +709,433 @@ class GetClientTestCase(TestCase):
         self.assertEqual(mock_anthropic.call_count, 1)
         self.assertEqual(client1, client2)
 
-        #testing CD pipeline
+class ExtractTasksFromMeetingThreadedTestCase(TestCase):
+    """Test threaded AI task extraction from meeting transcripts"""
+
+    def setUp(self):
+        self.user1 = User.objects.create_user(username='user1', password='TestPass123')
+        self.profile1 = UserProfile.objects.create(user=self.user1, display_name='User One')
+        self.user2 = User.objects.create_user(username='user2', password='TestPass123')
+        self.profile2 = UserProfile.objects.create(user=self.user2, display_name='User Two')
         
+        self.workspace = Workspace.objects.create(name='Test Team', created_by=self.user1)
+        WorkspaceMembership.objects.create(user=self.user1, workspace=self.workspace, role='admin')
+        WorkspaceMembership.objects.create(user=self.user2, workspace=self.workspace, role='member')
+        
+        self.meeting = Meeting.objects.create(
+            title='Test Meeting',
+            room_name='test-room-123',
+            created_by=self.user1,
+            workspace=self.workspace,
+            status='ended'
+        )
+
+    @patch('home.meeting_ai.get_client')
+    @patch('home.meeting_ai.connection')
+    def test_threaded_extraction_closes_connection(self, mock_connection, mock_get_client):
+        """Test that database connection is closed after threaded execution"""
+        from home.meeting_ai import extract_tasks_from_meeting_threaded
+        
+        # Setup transcript
+        MeetingTranscriptChunk.objects.create(
+            meeting=self.meeting,
+            speaker='User One',
+            text='We need to implement the login feature.'
+        )
+        
+        # Mock Anthropic API response
+        mock_response = Mock()
+        mock_response.content = [Mock(text=json.dumps({
+            "tasks": [
+                {
+                    "title": "Implement login feature",
+                    "assignee": "",
+                    "due_date": "",
+                    "priority": "",
+                    "notes": ""
+                }
+            ]
+        }))]
+        
+        mock_client = Mock()
+        mock_client.messages.create.return_value = mock_response
+        mock_get_client.return_value = mock_client
+        
+        # Execute in thread
+        thread = threading.Thread(
+            target=extract_tasks_from_meeting_threaded,
+            args=(self.meeting.id, self.user1.id),
+            daemon=True
+        )
+        thread.start()
+        thread.join(timeout=5)  # Wait up to 5 seconds
+        
+        # Verify connection.close() was called
+        mock_connection.close.assert_called_once()
+    @skipIf(
+        'sqlite' in settings.DATABASES['default']['ENGINE'],
+        "SQLite doesn't handle concurrent writes well in tests"
+    )
+    @patch('home.meeting_ai.get_client')
+    def test_threaded_extraction_creates_tasks(self, mock_get_client):
+        """Test that threaded extraction successfully creates tasks"""
+        from home.meeting_ai import extract_tasks_from_meeting_threaded
+        
+        # Setup transcript
+        MeetingTranscriptChunk.objects.create(
+            meeting=self.meeting,
+            speaker='User One',
+            text='We need to build feature A and feature B.'
+        )
+        
+        # Mock Anthropic API response
+        mock_response = Mock()
+        mock_response.content = [Mock(text=json.dumps({
+            "tasks": [
+                {
+                    "title": "Build feature A",
+                    "assignee": "",
+                    "due_date": "",
+                    "priority": "",
+                    "notes": ""
+                },
+                {
+                    "title": "Build feature B",
+                    "assignee": "",
+                    "due_date": "",
+                    "priority": "",
+                    "notes": ""
+                }
+            ]
+        }))]
+        
+        mock_client = Mock()
+        mock_client.messages.create.return_value = mock_response
+        mock_get_client.return_value = mock_client
+        
+        # Execute in thread
+        thread = threading.Thread(
+            target=extract_tasks_from_meeting_threaded,
+            args=(self.meeting.id, self.user1.id),
+            daemon=True
+        )
+        thread.start()
+        thread.join(timeout=5)
+        
+        # Wait a bit for database writes
+        time.sleep(0.1)
+        
+        # Verify tasks were created
+        self.assertEqual(Task.objects.filter(workspace=self.workspace).count(), 2)
+        self.assertTrue(Task.objects.filter(title='Build feature A').exists())
+        self.assertTrue(Task.objects.filter(title='Build feature B').exists())
+
+    @patch('home.meeting_ai.get_client')
+    @patch('home.meeting_ai.connection')
+    def test_threaded_extraction_handles_exception(self, mock_connection, mock_get_client):
+        """Test that exceptions are handled and connection is still closed"""
+        from home.meeting_ai import extract_tasks_from_meeting_threaded
+        
+        # Setup transcript
+        MeetingTranscriptChunk.objects.create(
+            meeting=self.meeting,
+            speaker='User One',
+            text='Create a task.'
+        )
+        
+        # Make API call raise an exception
+        mock_client = Mock()
+        mock_client.messages.create.side_effect = Exception('API Error')
+        mock_get_client.return_value = mock_client
+        
+        # Execute in thread
+        thread = threading.Thread(
+            target=extract_tasks_from_meeting_threaded,
+            args=(self.meeting.id, self.user1.id),
+            daemon=True
+        )
+        thread.start()
+        thread.join(timeout=5)
+        
+        # Verify connection.close() was still called despite exception
+        mock_connection.close.assert_called_once()
+        
+        # Verify no tasks were created
+        self.assertEqual(Task.objects.count(), 0)
+
+    @patch('home.meeting_ai.get_client')
+    def test_threaded_extraction_with_empty_transcript(self, mock_get_client):
+        """Test threaded extraction with empty transcript"""
+        from home.meeting_ai import extract_tasks_from_meeting_threaded
+        
+        # No transcript chunks created
+        
+        # Execute in thread
+        thread = threading.Thread(
+            target=extract_tasks_from_meeting_threaded,
+            args=(self.meeting.id, self.user1.id),
+            daemon=True
+        )
+        thread.start()
+        thread.join(timeout=5)
+        
+        # Should complete without error, no tasks created
+        self.assertEqual(Task.objects.count(), 0)
+
+    def test_threaded_extraction_returns_none(self):
+        """Test that threaded function returns None (fire-and-forget)"""
+        from home.meeting_ai import extract_tasks_from_meeting_threaded
+        
+        result = extract_tasks_from_meeting_threaded(self.meeting.id, self.user1.id)
+        
+        # Function should return None since it's designed for threading
+        self.assertIsNone(result)
+
+
+class GenerateTasksFromMeetingViewTestCase(TestCase):
+    """Test the generate_tasks_from_meeting view with threading"""
+
+    def setUp(self):
+        self.client = Client()
+        self.user1 = User.objects.create_user(username='user1', password='TestPass123')
+        self.profile1 = UserProfile.objects.create(user=self.user1, display_name='User One')
+        
+        self.workspace = Workspace.objects.create(name='Test Team', created_by=self.user1)
+        WorkspaceMembership.objects.create(user=self.user1, workspace=self.workspace, role='admin')
+        
+        self.meeting = Meeting.objects.create(
+            title='Test Meeting',
+            room_name='test-room-123',
+            created_by=self.user1,
+            workspace=self.workspace,
+            status='ended'
+        )
+        
+        # Add some transcript
+        MeetingTranscriptChunk.objects.create(
+            meeting=self.meeting,
+            speaker='User One',
+            text='We need to implement new features.'
+        )
+
+    @patch('home.views.threading.Thread')
+    def test_view_starts_thread(self, mock_thread_class):
+        """Test that the view starts a thread for task generation"""
+        mock_thread = Mock()
+        mock_thread_class.return_value = mock_thread
+        
+        self.client.login(username='user1', password='TestPass123')
+        
+        response = self.client.post(
+            reverse('generate_tasks_from_meeting', args=[self.meeting.id])
+        )
+        
+        # Verify thread was created
+        mock_thread_class.assert_called_once()
+        call_kwargs = mock_thread_class.call_args[1]
+        
+        # Verify thread configuration
+        self.assertEqual(call_kwargs['daemon'], True)
+        self.assertEqual(call_kwargs['args'], (self.meeting.id, self.user1.id))
+        
+        # Verify thread was started
+        mock_thread.start.assert_called_once()
+
+    @patch('home.views.threading.Thread')
+    def test_view_returns_immediately(self, mock_thread_class):
+        """Test that view returns immediately without waiting for thread"""
+        mock_thread = Mock()
+        mock_thread_class.return_value = mock_thread
+        
+        self.client.login(username='user1', password='TestPass123')
+        
+        start_time = time.time()
+        response = self.client.post(
+            reverse('generate_tasks_from_meeting', args=[self.meeting.id])
+        )
+        end_time = time.time()
+        
+        # Response should be nearly instant (< 1 second)
+        self.assertLess(end_time - start_time, 1.0)
+        
+        # Should redirect
+        self.assertEqual(response.status_code, 302)
+
+    def test_view_requires_post(self):
+        """Test that view requires POST method"""
+        self.client.login(username='user1', password='TestPass123')
+        
+        response = self.client.get(
+            reverse('generate_tasks_from_meeting', args=[self.meeting.id])
+        )
+        
+        self.assertEqual(response.status_code, 403)
+
+    def test_view_requires_authentication(self):
+        """Test that view requires user to be logged in"""
+        response = self.client.post(
+            reverse('generate_tasks_from_meeting', args=[self.meeting.id])
+        )
+        
+        # Should redirect to login
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/login/', response.url)
+
+    def test_view_requires_permission(self):
+        """Test that view requires appropriate permissions"""
+        other_user = User.objects.create_user(username='other', password='TestPass123')
+        UserProfile.objects.create(user=other_user, display_name='Other User')
+        
+        self.client.login(username='other', password='TestPass123')
+        
+        response = self.client.post(
+            reverse('generate_tasks_from_meeting', args=[self.meeting.id])
+        )
+        
+        # Should redirect to dashboard with error
+        self.assertEqual(response.status_code, 302)
+
+    @patch('home.views.threading.Thread')
+    def test_view_success_message(self, mock_thread_class):
+        """Test that view shows appropriate success message"""
+        mock_thread = Mock()
+        mock_thread_class.return_value = mock_thread
+        
+        self.client.login(username='user1', password='TestPass123')
+        
+        response = self.client.post(
+            reverse('generate_tasks_from_meeting', args=[self.meeting.id]),
+            follow=True
+        )
+        
+        # Check for success message
+        messages = list(response.context['messages'])
+        self.assertEqual(len(messages), 1)
+        self.assertIn('Task generation started', str(messages[0]))
+
+    @patch('home.views.threading.Thread')
+    def test_view_redirects_to_workspace(self, mock_thread_class):
+        """Test that view redirects to workspace detail page"""
+        mock_thread = Mock()
+        mock_thread_class.return_value = mock_thread
+        
+        self.client.login(username='user1', password='TestPass123')
+        
+        response = self.client.post(
+            reverse('generate_tasks_from_meeting', args=[self.meeting.id])
+        )
+        
+        # Should redirect to workspace detail
+        self.assertRedirects(
+            response,
+            reverse('workspace_detail', args=[self.workspace.id]),
+            fetch_redirect_response=False
+        )
+
+    @patch('home.views.threading.Thread')
+    def test_multiple_concurrent_requests(self, mock_thread_class):
+        """Test that multiple concurrent requests create separate threads"""
+        mock_threads = [Mock(), Mock(), Mock()]
+        mock_thread_class.side_effect = mock_threads
+        
+        self.client.login(username='user1', password='TestPass123')
+        
+        # Make multiple requests
+        for _ in range(3):
+            self.client.post(
+                reverse('generate_tasks_from_meeting', args=[self.meeting.id])
+            )
+        
+        # Verify 3 separate threads were created and started
+        self.assertEqual(mock_thread_class.call_count, 3)
+        for mock_thread in mock_threads:
+            mock_thread.start.assert_called_once()
+
+
+class ThreadingSafetyTestCase(TestCase):
+    """Test thread safety of the task extraction system"""
+
+    def setUp(self):
+        self.user1 = User.objects.create_user(username='user1', password='TestPass123')
+        self.profile1 = UserProfile.objects.create(user=self.user1, display_name='User One')
+        
+        self.workspace = Workspace.objects.create(name='Test Team', created_by=self.user1)
+        WorkspaceMembership.objects.create(user=self.user1, workspace=self.workspace, role='admin')
+        
+        self.meeting = Meeting.objects.create(
+            title='Test Meeting',
+            room_name='test-room-123',
+            created_by=self.user1,
+            workspace=self.workspace,
+            status='ended'
+        )
+
+    @skipIf(
+        'sqlite' in settings.DATABASES['default']['ENGINE'],
+        "SQLite doesn't handle concurrent writes well in tests"
+    )
+    
+    @patch('home.meeting_ai.get_client')
+    def test_concurrent_task_extraction(self, mock_get_client):
+        """Test that concurrent task extractions don't interfere with each other"""
+        from home.meeting_ai import extract_tasks_from_meeting_threaded
+        
+        # Create two meetings with different transcripts
+        meeting2 = Meeting.objects.create(
+            title='Test Meeting 2',
+            room_name='test-room-456',
+            created_by=self.user1,
+            workspace=self.workspace,
+            status='ended'
+        )
+        
+        MeetingTranscriptChunk.objects.create(
+            meeting=self.meeting,
+            speaker='User One',
+            text='Task A'
+        )
+        
+        MeetingTranscriptChunk.objects.create(
+            meeting=meeting2,
+            speaker='User One',
+            text='Task B'
+        )
+        
+        # Mock responses
+        def create_response(task_title):
+            mock_response = Mock()
+            mock_response.content = [Mock(text=json.dumps({
+                "tasks": [{"title": task_title, "assignee": "", "due_date": "", "priority": "", "notes": ""}]
+            }))]
+            return mock_response
+        
+        mock_client = Mock()
+        mock_client.messages.create.side_effect = [
+            create_response("Task from meeting 1"),
+            create_response("Task from meeting 2")
+        ]
+        mock_get_client.return_value = mock_client
+        
+        # Run both in threads
+        thread1 = threading.Thread(
+            target=extract_tasks_from_meeting_threaded,
+            args=(self.meeting.id, self.user1.id),
+            daemon=True
+        )
+        thread2 = threading.Thread(
+            target=extract_tasks_from_meeting_threaded,
+            args=(meeting2.id, self.user1.id),
+            daemon=True
+        )
+        
+        thread1.start()
+        thread2.start()
+        
+        thread1.join(timeout=5)
+        thread2.join(timeout=5)
+        
+        # Wait for database writes
+        time.sleep(0.2)
+        
+        # Both tasks should be created
+        self.assertEqual(Task.objects.count(), 2)
