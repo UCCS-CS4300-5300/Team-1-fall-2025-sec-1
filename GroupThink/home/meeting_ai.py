@@ -1,4 +1,7 @@
 # GroupThink/home/meeting_ai.py
+# Add this import at the top
+import threading
+from django.db import connection
 import os
 import datetime as dt
 from django.conf import settings
@@ -200,7 +203,7 @@ Return a JSON object with this exact structure:
             title=title[:200],
             description=(item.get("notes") or "").strip(),
             workspace=meeting.workspace,
-            assigned_to=assigned_user,  # Now actually assigns!
+            assigned_to=assigned_user,
             created_by_id=created_by_user_id,
             status="todo",
             due_date=due,
@@ -211,3 +214,22 @@ Return a JSON object with this exact structure:
     if created == 0:
         return {"created": 0, "reason": "No tasks were extracted from the transcript."}
     return {"created": created}
+
+
+# NEW FUNCTION - ADD THIS BELOW:
+def extract_tasks_from_meeting_threaded(meeting_id: int, created_by_user_id: int) -> None:
+    """
+    Wrapper for extract_tasks_from_meeting that closes DB connections properly.
+    Designed to run in a background thread.
+    """
+    try:
+        result = extract_tasks_from_meeting(meeting_id, created_by_user_id)
+        print(f"[THREAD] Task extraction completed: {result}")
+    except Exception as e:
+        import traceback
+        print(f"[THREAD] Task extraction failed: {e}")
+        print(traceback.format_exc())
+    finally:
+        # CRITICAL: Close database connections in this thread
+        # Django's DB connections are thread-local and must be closed
+        connection.close()

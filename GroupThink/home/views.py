@@ -8,7 +8,8 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.http import HttpResponse, JsonResponse, HttpResponseForbidden
 from datetime import timedelta
-from .meeting_ai import extract_tasks_from_meeting
+from .meeting_ai import extract_tasks_from_meeting_threaded
+import threading
 from .recording_webhook_handlers import handle_recording_uploaded
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect
@@ -374,8 +375,8 @@ def join_meeting(request, room_name):
 def generate_tasks_from_meeting(request, meeting_id):
     """
     Use AI to extract tasks from a meeting's transcript and create Task rows.
+    Runs in background thread so user doesn't wait for AI processing.
     """
-    print("=== STARTING TASK GENERATION ===")
     meeting = get_object_or_404(Meeting, id=meeting_id)
 
     # Permission check
@@ -394,24 +395,19 @@ def generate_tasks_from_meeting(request, meeting_id):
     if request.method != "POST":
         return HttpResponseForbidden("Invalid request method.")
 
-    print("=== CALLING EXTRACT_TASKS_FROM_MEETING ===")
-    try:
-        result = extract_tasks_from_meeting(meeting.id, request.user.id)
-        print(f"=== RESULT: {result} ===")
-    except Exception as e:
-        import traceback
-        print("=== FULL ERROR ===")
-        print(traceback.format_exc())
-        messages.error(request, f"AI task generation failed: {e}")
-    else:
-        created = result.get("created", 0)
-        reason = result.get("reason")
-        if created:
-            messages.success(request, f"Generated {created} task(s) from meeting transcript.")
-        elif reason:
-            messages.info(request, reason)
-        else:
-            messages.info(request, "No tasks were created from the transcript.")
+    # Start task generation in background thread
+    thread = threading.Thread(
+        target=extract_tasks_from_meeting_threaded,
+        args=(meeting.id, request.user.id),
+        daemon=True  # Daemon thread won't prevent app shutdown
+    )
+    thread.start()
+
+    # Immediately return success message
+    messages.success(
+        request, 
+        "Task generation started! Tasks will appear shortly as the AI processes the transcript."
+    )
 
     if meeting.workspace:
         return redirect('workspace_detail', workspace_id=meeting.workspace.id)
