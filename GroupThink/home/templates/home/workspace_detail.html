@@ -236,217 +236,240 @@
 </section>
 
 <script>
-(function() {
-  const chatLog = document.getElementById('chat-log');
-  const messageInput = document.getElementById('chat-message-input');
-  const submitBtn = document.getElementById('chat-message-submit');
-  const attachBtn = document.getElementById('chat-attach-btn');
-  const fileInput = document.getElementById('chat-file-input');
-  const filePreview = document.getElementById('file-preview');
-  const fileName = document.getElementById('file-name');
-  const fileRemoveBtn = document.getElementById('file-remove');
-  const workspaceId = {{ workspace.id }};
-  const csrfToken = '{{ csrf_token }}';
-
-  let lastMessageId = 0;
-  let selectedFile = null;
-  let pollingInterval = null;
-
-  // Convert URLs in text to clickable links
-  function linkifyText(text) {
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
-    return text.replace(urlRegex, '<a href="$1" target="_blank" rel="noopener noreferrer" style="color: #3b82f6; text-decoration: underline;">$1</a>');
-  }
-
-  // Escape HTML to prevent XSS
-  function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-  }
-
-  // Format ISO timestamp to local timezone
-  function formatTimestamp(isoString) {
-    const date = new Date(isoString);
-    const options = {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    };
-    return date.toLocaleString('en-US', options);
-  }
-
-  // Render a chat message
-  function renderMessage(msg) {
-    const messageDiv = document.createElement('div');
-    messageDiv.style.cssText = `
-      background: ${msg.is_own_message ? '#e3f2fd' : 'white'};
-      padding: 10px;
-      border-radius: 8px;
-      border-left: 3px solid ${msg.is_own_message ? '#3b82f6' : '#ddd'};
-    `;
-
-    const header = document.createElement('div');
-    header.style.cssText = 'display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 13px;';
-
-    const sender = document.createElement('strong');
-    sender.textContent = msg.sender;
-    sender.style.color = '#333';
-
-    const timestamp = document.createElement('span');
-    timestamp.textContent = formatTimestamp(msg.timestamp);
-    timestamp.style.color = '#999';
-
-    header.appendChild(sender);
-    header.appendChild(timestamp);
-
-    const messageText = document.createElement('div');
-    messageText.innerHTML = linkifyText(escapeHtml(msg.message));
-    messageText.style.cssText = 'color: #333; word-wrap: break-word; margin-top: 4px;';
-
-    messageDiv.appendChild(header);
-    messageDiv.appendChild(messageText);
-
-    // Render attachments
-    if (msg.attachments && msg.attachments.length > 0) {
-      msg.attachments.forEach(att => {
-        const attachDiv = document.createElement('div');
-        attachDiv.style.cssText = 'margin-top: 8px; padding: 6px; background: #f3f4f6; border-radius: 4px;';
-
-        const attachLink = document.createElement('a');
-        attachLink.href = att.file_url;
-        attachLink.download = att.file_name;
-        attachLink.textContent = `📄 ${att.file_name} (${att.file_size})`;
-        attachLink.style.cssText = 'color: #3b82f6; text-decoration: none; font-size: 13px;';
-        attachLink.target = '_blank';
-
-        attachDiv.appendChild(attachLink);
-        messageDiv.appendChild(attachDiv);
-      });
+  (function() {
+    const chatLog = document.getElementById('chat-log');
+    const messageInput = document.getElementById('chat-message-input');
+    const submitBtn = document.getElementById('chat-message-submit');
+    const attachBtn = document.getElementById('chat-attach-btn');
+    const fileInput = document.getElementById('chat-file-input');
+    const filePreview = document.getElementById('file-preview');
+    const fileName = document.getElementById('file-name');
+    const fileRemoveBtn = document.getElementById('file-remove');
+    const workspaceId = {{ workspace.id }};
+    const csrfToken = '{{ csrf_token }}';
+    const currentUsername = "{{ user.username|escapejs }}";
+  
+    let lastMessageId = 0;
+    let selectedFile = null;
+  
+    function linkifyText(text) {
+      const urlRegex = /(https?:\/\/[^\s]+)/g;
+      return text.replace(
+        urlRegex,
+        '<a href="$1" target="_blank" rel="noopener noreferrer" style="color: #3b82f6; text-decoration: underline;">$1</a>'
+      );
     }
-
-    return messageDiv;
-  }
-
-  // Fetch and display messages
-  function fetchMessages() {
-    fetch(`/workspace/${workspaceId}/chat/messages/?since_id=${lastMessageId}`)
-      .then(response => response.json())
-      .then(data => {
-        if (data.messages && data.messages.length > 0) {
-          // Remove loading message if present
-          const loadingMsg = document.getElementById('chat-loading');
-          if (loadingMsg) loadingMsg.remove();
-
-          data.messages.forEach(msg => {
-            chatLog.appendChild(renderMessage(msg));
-            lastMessageId = Math.max(lastMessageId, msg.id);
-          });
-
-          // Auto-scroll to bottom
-          chatLog.scrollTop = chatLog.scrollHeight;
-        } else if (lastMessageId === 0) {
-          // No messages yet
-          document.getElementById('chat-loading').textContent = 'No messages yet. Start the conversation!';
-        }
-      })
-      .catch(error => {
-        console.error('Error fetching messages:', error);
-      });
-  }
-
-  // Send message
-  function sendMessage() {
-    const message = messageInput.value.trim();
-
-    if (!message && !selectedFile) {
-      return;
+  
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
     }
-
-    const formData = new FormData();
-    if (message) {
-      formData.append('message', message);
+  
+    function formatTimestamp(isoString) {
+      const date = new Date(isoString);
+      const options = {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      };
+      return date.toLocaleString('en-US', options);
     }
-    if (selectedFile) {
-      formData.append('file', selectedFile);
-    }
-
-    fetch(`/workspace/${workspaceId}/chat/send/`, {
-      method: 'POST',
-      headers: {
-        'X-CSRFToken': csrfToken
-      },
-      body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-      if (data.success) {
-        messageInput.value = '';
-        clearFileSelection();
-        fetchMessages();  // Refresh messages immediately
-      } else {
-        alert(data.error || 'Failed to send message');
+  
+    function renderMessage(msg) {
+      const messageDiv = document.createElement('div');
+      messageDiv.style.cssText = `
+        background: ${msg.is_own_message ? '#e3f2fd' : 'white'};
+        padding: 10px;
+        border-radius: 8px;
+        border-left: 3px solid ${msg.is_own_message ? '#3b82f6' : '#ddd'};
+      `;
+  
+      const header = document.createElement('div');
+      header.style.cssText = 'display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 13px;';
+  
+      const sender = document.createElement('strong');
+      sender.textContent = msg.sender;
+      sender.style.color = '#333';
+  
+      const timestamp = document.createElement('span');
+      timestamp.textContent = formatTimestamp(msg.timestamp);
+      timestamp.style.color = '#999';
+  
+      header.appendChild(sender);
+      header.appendChild(timestamp);
+  
+      const messageText = document.createElement('div');
+      messageText.innerHTML = linkifyText(escapeHtml(msg.message));
+      messageText.style.cssText = 'color: #333; word-wrap: break-word; margin-top: 4px;';
+  
+      messageDiv.appendChild(header);
+      messageDiv.appendChild(messageText);
+  
+      if (msg.attachments && msg.attachments.length > 0) {
+        msg.attachments.forEach(att => {
+          const attachDiv = document.createElement('div');
+          attachDiv.style.cssText = 'margin-top: 8px; padding: 6px; background: #f3f4f6; border-radius: 4px;';
+  
+          const attachLink = document.createElement('a');
+          attachLink.href = att.file_url;
+          attachLink.download = att.file_name;
+          attachLink.textContent = `📄 ${att.file_name} (${att.file_size})`;
+          attachLink.style.cssText = 'color: #3b82f6; text-decoration: none; font-size: 13px;';
+          attachLink.target = '_blank';
+  
+          attachDiv.appendChild(attachLink);
+          messageDiv.appendChild(attachDiv);
+        });
       }
-    })
-    .catch(error => {
-      console.error('Error sending message:', error);
-      alert('Failed to send message. Please try again.');
-    });
-  }
-
-  // File selection handling
-  function clearFileSelection() {
-    selectedFile = null;
-    fileInput.value = '';
-    filePreview.style.display = 'none';
-    fileName.textContent = '';
-  }
-
-  attachBtn.addEventListener('click', () => {
-    fileInput.click();
-  });
-
-  fileInput.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      // Check file size (10MB)
-      if (file.size > 10 * 1024 * 1024) {
-        alert('File size exceeds 10MB limit');
-        clearFileSelection();
+  
+      return messageDiv;
+    }
+  
+    function appendMessage(msg) {
+      chatLog.appendChild(renderMessage(msg));
+      lastMessageId = Math.max(lastMessageId, msg.id || 0);
+      chatLog.scrollTop = chatLog.scrollHeight;
+  
+      const loadingMsg = document.getElementById('chat-loading');
+      if (loadingMsg) loadingMsg.remove();
+    }
+  
+    function fetchMessages() {
+      fetch(`/workspace/${workspaceId}/chat/messages/?since_id=${lastMessageId}`)
+        .then(response => response.json())
+        .then(data => {
+          if (data.messages && data.messages.length > 0) {
+            data.messages.forEach(msg => {
+              appendMessage(msg); // msg already has is_own_message from backend
+            });
+          } else if (lastMessageId === 0) {
+            const loadingMsg = document.getElementById('chat-loading');
+            if (loadingMsg) {
+              loadingMsg.textContent = 'No messages yet. Start the conversation!';
+            }
+          }
+        })
+        .catch(error => {
+          console.error('Error fetching messages:', error);
+        });
+    }
+  
+    function sendMessage() {
+      const message = messageInput.value.trim();
+      if (!message && !selectedFile) {
         return;
       }
-      selectedFile = file;
-      fileName.textContent = file.name;
-      filePreview.style.display = 'flex';
-      filePreview.style.alignItems = 'center';
+  
+      const formData = new FormData();
+      if (message) {
+        formData.append('message', message);
+      }
+      if (selectedFile) {
+        formData.append('file', selectedFile);
+      }
+  
+      fetch(`/workspace/${workspaceId}/chat/send/`, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': csrfToken
+        },
+        body: formData
+      })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            messageInput.value = '';
+            clearFileSelection();
+            // WebSocket will deliver the new message
+          } else {
+            alert(data.error || 'Failed to send message');
+          }
+        })
+        .catch(error => {
+          console.error('Error sending message:', error);
+          alert('Failed to send message. Please try again.');
+        });
     }
-  });
-
-  fileRemoveBtn.addEventListener('click', clearFileSelection);
-
-  // Event listeners
-  submitBtn.addEventListener('click', sendMessage);
-  messageInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-      sendMessage();
+  
+    function clearFileSelection() {
+      selectedFile = null;
+      fileInput.value = '';
+      filePreview.style.display = 'none';
+      fileName.textContent = '';
     }
-  });
-
-  // Initial load and polling
-  fetchMessages();
-  pollingInterval = setInterval(fetchMessages, 2000);  // Poll every 2 seconds
-
-  // Cleanup on page unload
-  window.addEventListener('beforeunload', () => {
-    if (pollingInterval) {
-      clearInterval(pollingInterval);
-    }
-  });
-})();
+  
+    attachBtn.addEventListener('click', () => {
+      fileInput.click();
+    });
+  
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        if (file.size > 10 * 1024 * 1024) {
+          alert('File size exceeds 10MB limit');
+          clearFileSelection();
+          return;
+        }
+        selectedFile = file;
+        fileName.textContent = file.name;
+        filePreview.style.display = 'flex';
+        filePreview.style.alignItems = 'center';
+      }
+    });
+  
+    fileRemoveBtn.addEventListener('click', clearFileSelection);
+  
+    submitBtn.addEventListener('click', sendMessage);
+    messageInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+  
+    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+    const socketUrl = `${protocol}://${window.location.host}/ws/workspace/${workspaceId}/`;
+    const chatSocket = new WebSocket(socketUrl);
+  
+    chatSocket.onopen = () => {
+      console.log("Workspace chat socket connected");
+      fetchMessages();  // load history once
+    };
+  
+    chatSocket.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+  
+      if (data.type === "chat.message") {
+        const isOwn = data.sender_username === currentUsername;
+  
+        const msg = {
+          id: data.id,
+          sender: data.sender,
+          message: data.message,
+          timestamp: data.timestamp,
+          attachments: data.attachments || [],
+          is_own_message: isOwn,
+        };
+  
+        appendMessage(msg);
+      } else {
+        console.log("Unknown WS message:", data);
+      }
+    };
+  
+    chatSocket.onclose = () => {
+      console.log("Workspace chat socket closed");
+    };
+  
+    // No polling interval anymore. WebSocket handles new messages.
+  })();
 </script>
+  
+  
 
 
 <div class="workspace-footer" style="display: flex; justify-content: center; align-items: center; gap: 16px; margin-top: 24px;">

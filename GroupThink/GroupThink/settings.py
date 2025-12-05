@@ -35,8 +35,7 @@ ALLOWED_HOSTS = [
     'editor-brackencontainer-19.devedu.io',
     '127.0.0.1',
     'app-acedcontainer-19.devedu.io',
-    'group-think.dev'
-    
+    'group-think.dev' 
 ]
 
 CSRF_TRUSTED_ORIGINS = [
@@ -54,8 +53,10 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
+    'daphne',
     'django.contrib.staticfiles',
     'anymail',
+    'channels',
     'home',
 ]
 
@@ -88,7 +89,13 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'GroupThink.wsgi.application'
+ASGI_APPLICATION = 'GroupThink.asgi.application'
 
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
+    }
+}
 
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
