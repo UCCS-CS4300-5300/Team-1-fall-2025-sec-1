@@ -39,7 +39,7 @@ ALLOWED_HOSTS = [
 ]
 
 CSRF_TRUSTED_ORIGINS = [
-    "https://group-think.dev"
+    "https://group-think.dev",
     "https://groupthink-gt.onrender.com",
     "https://app-brackencontainer-19.devedu.io",
     "https://app-acedcontainer-19.devedu.io"
