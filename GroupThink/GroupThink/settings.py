@@ -39,6 +39,7 @@ ALLOWED_HOSTS = [
 ]
 
 CSRF_TRUSTED_ORIGINS = [
+    "https://group-think.dev"
     "https://groupthink-gt.onrender.com",
     "https://app-brackencontainer-19.devedu.io",
     "https://app-acedcontainer-19.devedu.io"
@@ -91,11 +92,28 @@ TEMPLATES = [
 WSGI_APPLICATION = 'GroupThink.wsgi.application'
 ASGI_APPLICATION = 'GroupThink.asgi.application'
 
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels.layers.InMemoryChannelLayer",
+import os
+
+REDIS_URL = os.environ.get("REDIS_URL")
+LOCAL = os.environ.get("LOCAL")
+
+if REDIS_URL and not LOCAL:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {
+                "hosts": [REDIS_URL],
+            },
+        }
     }
-}
+else:
+    # Local fallback
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels.layers.InMemoryChannelLayer",
+        }
+    }
+
 
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
