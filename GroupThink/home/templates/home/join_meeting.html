@@ -93,12 +93,63 @@
             window.location.href = '{% url "dashboard" %}';
         });
 
-        async function fetchTranscript() {
-            const res = await fetch("/transcripts/{{ meeting.room_name }}/");
-            document.getElementById("transcript-box").textContent = await res.text();
+        const transcriptBox = document.getElementById("transcript-box");
+        const meetingId = {{ meeting.id }};
+        const roomName = "{{ meeting.room_name|escapejs }}";
+
+        // Load existing transcript once
+        async function fetchTranscriptOnce() {
+            if (!transcriptBox) return;
+            try {
+                const res = await fetch(`/transcripts/${roomName}/`);
+                if (!res.ok) {
+                    console.warn("Failed to load transcript history");
+                    return;
+                }
+                const text = await res.text();
+                if (text.trim()) {
+                    transcriptBox.textContent = text;
+                    transcriptBox.scrollTop = transcriptBox.scrollHeight;
+                }
+            } catch (err) {
+                console.error("Error fetching transcript history:", err);
+            }
         }
-        setInterval(fetchTranscript, 3000);
-        fetchTranscript();
+        fetchTranscriptOnce();  
+
+        // Live updates via WebSocket
+        if (transcriptBox) {
+            const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+            const socketUrl = `${protocol}://${window.location.host}/ws/meeting/${meetingId}/`;
+            const transcriptSocket = new WebSocket(socketUrl);
+
+            transcriptSocket.onopen = () => {
+                console.log("Transcription socket connected");
+            };
+
+            transcriptSocket.onmessage = (event) => {
+                let data;
+                try {
+                    data = JSON.parse(event.data);
+                } catch (e) {
+                    console.error("Invalid JSON from transcription socket:", event.data);
+                    return;
+                }
+
+                if (data.type === "transcription.chunk") {
+                    const line = `${(data.speaker || "Unknown").trim()}: ${data.text}`;
+                    const existing = transcriptBox.textContent || "";
+                    transcriptBox.textContent = existing ? existing + "\n" + line : line;
+                    transcriptBox.scrollTop = transcriptBox.scrollHeight;
+                } else {
+                    console.log("Unknown transcription message:", data);
+                }
+            };
+
+            transcriptSocket.onclose = () => {
+                console.log("Transcription socket closed");
+            };
+        }
 
         // When end meeting button hit, stop all recordings instantly.
         async function stopRecordingAlways() {

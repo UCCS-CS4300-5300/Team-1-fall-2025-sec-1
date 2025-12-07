@@ -35,11 +35,11 @@ ALLOWED_HOSTS = [
     'editor-brackencontainer-19.devedu.io',
     '127.0.0.1',
     'app-acedcontainer-19.devedu.io',
-    'group-think.dev'
-    
+    'group-think.dev' 
 ]
 
 CSRF_TRUSTED_ORIGINS = [
+    "https://group-think.dev"
     "https://groupthink-gt.onrender.com",
     "https://app-brackencontainer-19.devedu.io",
     "https://app-acedcontainer-19.devedu.io"
@@ -54,8 +54,10 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
+    'daphne',
     'django.contrib.staticfiles',
     'anymail',
+    'channels',
     'home',
 ]
 
@@ -88,6 +90,29 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'GroupThink.wsgi.application'
+ASGI_APPLICATION = 'GroupThink.asgi.application'
+
+import os
+
+REDIS_URL = os.environ.get("REDIS_URL")
+LOCAL = os.environ.get("LOCAL")
+
+if REDIS_URL and not LOCAL:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {
+                "hosts": [REDIS_URL],
+            },
+        }
+    }
+else:
+    # Local fallback
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels.layers.InMemoryChannelLayer",
+        }
+    }
 
 
 # Database

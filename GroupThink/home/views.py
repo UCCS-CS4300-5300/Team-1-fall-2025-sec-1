@@ -14,6 +14,11 @@ from .recording_webhook_handlers import handle_recording_uploaded
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect
 from django.contrib import messages
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
+from django.utils import timezone
+
+
 
 # from django.core.mail import send_mail  # For future email verification
 # from django.conf import settings  # For future email verification
@@ -809,16 +814,31 @@ def jaas_webhook(request):
                 # Check if this is a duplicate of the last chunk (same speaker, similar text)
                 last_chunk = m.chunks.order_by('-created_at').first()
                 is_duplicate = (
-                    last_chunk and 
-                    last_chunk.speaker == speaker and 
+                    last_chunk and
+                    last_chunk.speaker == speaker and
                     last_chunk.text == text
                 )
-                
+
                 if not is_duplicate:
-                    m.chunks.create(text=text, speaker=speaker)
+                    chunk = m.chunks.create(text=text, speaker=speaker)
                     print("WEBHOOK SAVED → meeting_id:", m.id)
+
+                    # 🔊 Broadcast this chunk over WebSocket to all viewers of this meeting
+                    channel_layer = get_channel_layer()
+                    if channel_layer is not None:
+                        async_to_sync(channel_layer.group_send)(
+                            f"meeting_{m.id}",  # group name tied to meeting id
+                            {
+                                "type": "transcription.chunk",
+                                "meeting_id": m.id,
+                                "text": chunk.text,
+                                "speaker": chunk.speaker or "Unknown",
+                                "timestamp": chunk.created_at.isoformat(),
+                            },
+                        )
                 else:
                     print("WEBHOOK SKIPPED DUPLICATE")
+
     
     if event == "RECORDING_UPLOADED":
         handle_recording_uploaded(room_full, data)
@@ -910,6 +930,8 @@ def send_chat_message(request, workspace_id):
         message=message_text
     )
 
+    attachments_payload = []
+
     # Handle file upload if present
     if uploaded_file:
         # Check file size (10MB = 10 * 1024 * 1024 bytes)
@@ -919,21 +941,50 @@ def send_chat_message(request, workspace_id):
             return JsonResponse({'error': 'File size exceeds 10MB limit'}, status=400)
 
         # Create attachment
-        ChatAttachment.objects.create(
+        attachment = ChatAttachment.objects.create(
             chat_message=chat_message,
             file=uploaded_file,
             file_name=uploaded_file.name,
             file_size=uploaded_file.size
         )
 
+        attachments_payload.append({
+            'id': attachment.id,
+            'file_name': attachment.file_name,
+            'file_url': attachment.file.url,
+            'file_size': attachment.get_file_size_display(),
+        })
+
+    # Build sender display name
+    sender_display = getattr(request.user.profile, "display_name", "") or request.user.username
+
+    # Build event payload for WebSocket clients
+    event = {
+        "type": "chat.message",                
+        "id": chat_message.id,
+        "workspace_id": workspace.id,
+        "sender": sender_display,             
+        "sender_username": request.user.username,
+        "message": chat_message.message,
+        "timestamp": chat_message.created_at.isoformat(),
+        "attachments": attachments_payload,
+    }
+
+    # Broadcast to all sockets for this workspace
+    channel_layer = get_channel_layer()
+    async_to_sync(channel_layer.group_send)(
+        f"workspace_{workspace.id}",
+        event,
+    )
+
+    # HTTP response for the sender (your old behavior)
     return JsonResponse({
         'success': True,
         'message_id': chat_message.id,
-        'sender': request.user.profile.display_name,
+        'sender': sender_display,
         'message': chat_message.message,
-        'timestamp': chat_message.created_at.isoformat()  # Send ISO format for client-side timezone conversion
+        'timestamp': chat_message.created_at.isoformat(),
     })
-
 
 @login_required
 def get_chat_messages(request, workspace_id):
@@ -945,7 +996,7 @@ def get_chat_messages(request, workspace_id):
     if not membership:
         return JsonResponse({'error': 'You are not a member of this workspace'}, status=403)
 
-    # Get messages after a certain ID if provided (for polling)
+    # Get messages after a certain ID if provided (for polling / initial load)
     since_id = request.GET.get('since_id', 0)
     messages_qs = workspace.chat_messages.filter(id__gt=since_id).select_related('sender', 'sender__profile')
 
@@ -966,7 +1017,7 @@ def get_chat_messages(request, workspace_id):
             'sender': msg.sender.profile.display_name,
             'sender_username': msg.sender.username,
             'message': msg.message,
-            'timestamp': msg.created_at.isoformat(),  # Send ISO format for client-side timezone conversion
+            'timestamp': msg.created_at.isoformat(),
             'attachments': attachments,
             'is_own_message': msg.sender == request.user
         })
