@@ -84,7 +84,7 @@ jobs:
       - name: Run Pylint and print report
         working-directory: ./GroupThink
         run: |
-          pylint --load-plugins=pylint_django --django-settings-module=GroupThink.settings --ignore=migrations --ignore-patterns="test_.*" --disable=C0103,R0901,W0603,C0302 GroupThink home || true
+          pylint --load-plugins=pylint_django --django-settings-module=GroupThink.settings --ignore=migrations --ignore-patterns="test_.*" GroupThink home || true
 
   # A job for finding dependency vulnerabilities
   dependency-vulnerability-scans:

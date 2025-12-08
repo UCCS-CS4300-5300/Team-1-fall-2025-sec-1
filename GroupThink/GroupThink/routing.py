@@ -1,5 +1,7 @@
+"""WebSocket URL routing configuration."""
 from django.urls import re_path
-from home.consumers import WorkspaceChatConsumer, TranscriptionConsumer
+
+from home.consumers import TranscriptionConsumer, WorkspaceChatConsumer
 
 # All sockets
 websocket_urlpatterns = [

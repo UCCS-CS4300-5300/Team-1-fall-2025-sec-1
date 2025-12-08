@@ -1,17 +1,21 @@
-from datetime import datetime, timedelta, timezone as dt_timezone
+"""Webhook handlers for recording events from JaaS."""
+from datetime import datetime, timedelta
+from datetime import timezone as dt_timezone
+
 from django.utils import timezone
 
 from .models import Meeting, Recording
 
 
 def _ts_to_dt(ts_ms):
-    """Convert Jitsi ms timestamp → aware datetime (UTC)."""
+    """Convert Jitsi ms timestamp to aware datetime (UTC)."""
     if not ts_ms:
         return None
     return datetime.fromtimestamp(ts_ms / 1000.0, tz=dt_timezone.utc)
 
 
 def handle_recording_uploaded(fqn: str, data: dict):
+    """Handle the RECORDING_UPLOADED webhook event from JaaS."""
     if not fqn:
         print("RECORDING_UPLOADED with no fqn")
         return
@@ -21,7 +25,7 @@ def handle_recording_uploaded(fqn: str, data: dict):
         print("No preAuthenticatedLink in data")
         return
 
-    # fqn is like "appId/roomName" → we only want the room slug
+    # fqn is like "appId/roomName" -> we only want the room slug
     if "/" in fqn:
         room_name = fqn.split("/", 1)[1]
     else:
@@ -48,7 +52,7 @@ def handle_recording_uploaded(fqn: str, data: dict):
         initiator_id=initiator_id or "",
         expires_at=expires_at,
     )
-    
+
     meeting.recording_url = preauth_link
     meeting.save(update_fields=["recording_url"])
 

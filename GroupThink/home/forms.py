@@ -1,11 +1,13 @@
-from django import forms
-from django.contrib.auth.models import User
-from django.contrib.auth.forms import UserCreationForm
-from django.core.exceptions import ValidationError
+"""Forms for user authentication and workspace management."""
 import re
 
+from django import forms
+from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
 
-class SignUpForm(UserCreationForm):
+
+class SignUpForm(UserCreationForm):  # pylint: disable=too-many-ancestors
     """User registration form with email and display name"""
     email = forms.EmailField(
         max_length=254,
@@ -61,7 +63,9 @@ class SignUpForm(UserCreationForm):
         """Validate username format"""
         username = self.cleaned_data.get('username')
         if not re.match(r'^[a-zA-Z0-9_]+$', username):
-            raise ValidationError("Username can only contain letters, numbers, and underscores.")
+            raise ValidationError(
+                "Username can only contain letters, numbers, and underscores."
+            )
         if User.objects.filter(username=username).exists():
             raise ValidationError("This username is already taken.")
         return username
@@ -177,7 +181,10 @@ class TaskForm(forms.Form):
         super().__init__(*args, **kwargs)
         if workspace:
             # Get team members for assignment dropdown
-            from home.models import WorkspaceMembership
-            members = WorkspaceMembership.objects.filter(workspace=workspace).select_related('user')
-            choices = [('', '-- Unassigned --')] + [(m.user.id, m.user.profile.display_name) for m in members]
+            from home.models import WorkspaceMembership  # pylint: disable=import-outside-toplevel
+            members = WorkspaceMembership.objects.filter(
+                workspace=workspace
+            ).select_related('user')
+            choices = [('', '-- Unassigned --')]
+            choices += [(m.user.id, m.user.profile.display_name) for m in members]
             self.fields['assigned_to'].choices = choices
