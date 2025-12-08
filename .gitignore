@@ -1,0 +1,25 @@
+# Python cache and bytecode
+__pycache__/
+*.py[cod]
+
+# Environment files
+.env
+*.env
+
+# Virtual environment folders
+venv/
+env/
+*.sqlite3
+
+# IDE/project files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+
+# Django static files (optional, if collected)
+staticfiles/
+
+jaas_private.pem
+.env

@@ -1,0 +1,55 @@
+{% extends 'home/base.html' %}
+{% block title %}Login - GroupThink{% endblock %}
+
+{% block content %}
+<main class="auth-container">
+  <div class="auth-box">
+    <h1 class="auth-title">Welcome Back</h1>
+    <p class="auth-subtitle">Log in to your GroupThink account</p>
+
+    <form method="post" class="auth-form">
+      {% csrf_token %}
+
+      <!-- Display form errors -->
+      {% if form.non_field_errors %}
+      <div class="form-errors">
+        {{ form.non_field_errors }}
+      </div>
+      {% endif %}
+
+      <!-- Username/Email -->
+      <div class="form-group">
+        <label for="{{ form.username.id_for_label }}">Username or Email</label>
+        {{ form.username }}
+        {% if form.username.errors %}
+        <div class="field-error">{{ form.username.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <!-- Password -->
+      <div class="form-group">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <label for="{{ form.password.id_for_label }}">Password</label>
+          <a href="{% url 'password_reset' %}" style="font-size: 14px; color: var(--brand); text-decoration: none;">Forgot password?</a>
+        </div>
+        {{ form.password }}
+        {% if form.password.errors %}
+        <div class="field-error">{{ form.password.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <!-- Remember Me -->
+      <div class="form-group-checkbox">
+        {{ form.remember_me }}
+        <label for="{{ form.remember_me.id_for_label }}">Remember me for 2 weeks</label>
+      </div>
+
+      <button type="submit" class="btn btn-submit">Log In</button>
+    </form>
+
+    <div class="auth-footer">
+      <p>Don't have an account? <a href="{% url 'signup' %}">Sign up here</a></p>
+    </div>
+  </div>
+</main>
+{% endblock %}

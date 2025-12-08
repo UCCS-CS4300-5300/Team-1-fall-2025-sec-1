@@ -1,0 +1,30 @@
+{% extends 'home/base.html' %}
+{% block title %}Create Workspace - GroupThink{% endblock %}
+
+{% block content %}
+<main class="auth-container">
+  <div class="auth-box">
+    <h1 class="auth-title">Create Workspace</h1>
+    <p class="auth-subtitle">Set up a new team workspace for collaboration</p>
+
+    <form method="post" class="auth-form">
+      {% csrf_token %}
+
+      <div class="form-group">
+        <label for="{{ form.name.id_for_label }}">Workspace Name</label>
+        {{ form.name }}
+        {% if form.name.errors %}
+        <div class="field-error">{{ form.name.errors.0 }}</div>
+        {% endif %}
+        <small class="form-text">E.g., "CS 321 Project Team" or "Marketing Squad"</small>
+      </div>
+
+      <button type="submit" class="btn btn-submit">Create Workspace</button>
+    </form>
+
+    <div class="auth-footer">
+      <p><a href="{% url 'dashboard' %}">Back to Dashboard</a></p>
+    </div>
+  </div>
+</main>
+{% endblock %}

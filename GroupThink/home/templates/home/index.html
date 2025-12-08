@@ -1,0 +1,104 @@
+{% extends 'home/base.html' %}
+{% block title %}GroupThink - Collaboration Made Simple{% endblock %}
+{% block content %}
+<!-- Hero -->
+<main class="hero">
+  <div class="hero-inner">
+    <h1 class="headline">
+      THINK BETTER <span class="accent">TOGETHER</span>
+    </h1>
+    <p class="subhead">
+      GroupThink is the first collaboration software app for students
+    </p>
+    <a class="btn btn-primary" href="{% url 'signup' %}">SignUp</a>
+  </div>
+</main>
+
+<!-- Features Section -->
+<section class="features-section">
+  <div class="features-header">
+    <h2>Everything you need to collaborate effectively</h2>
+    <p>Powerful features designed specifically for student teams</p>
+  </div>
+  
+  <div class="features-grid">
+    <div class="feature-block">
+      <div class="feature-icon">📹</div>
+      <h3>HD Video Meetings</h3>
+      <p>Host unlimited video meetings with your team using integrated Jitsi technology. Screen sharing, recording, and crystal-clear audio included.</p>
+    </div>
+
+    <div class="feature-block">
+      <div class="feature-icon">🤖</div>
+      <h3>AI-Powered Tasks</h3>
+      <p>Our AI automatically extracts action items from your meeting transcripts and creates organized tasks, so nothing falls through the cracks.</p>
+    </div>
+
+    <div class="feature-block">
+      <div class="feature-icon">💬</div>
+      <h3>Real-Time Chat</h3>
+      <p>Stay connected with your team through instant messaging. Share ideas, files, and updates without leaving the platform.</p>
+    </div>
+
+    <div class="feature-block">
+      <div class="feature-icon">✅</div>
+      <h3>Task Management</h3>
+      <p>Organize, assign, and track tasks across your team. See who's working on what and monitor project progress in real-time.</p>
+    </div>
+
+    <div class="feature-block">
+      <div class="feature-icon">🎥</div>
+      <h3>Recording Storage</h3>
+      <p>Never miss a detail. All your meetings are automatically recorded and stored securely, accessible anytime you need to review.</p>
+    </div>
+
+    <div class="feature-block">
+      <div class="feature-icon">👥</div>
+      <h3>Team Workspaces</h3>
+      <p>Create dedicated spaces for each project or class. Keep everything organized with separate workspaces for different teams.</p>
+    </div>
+  </div>
+</section>
+
+<!-- CTA Section -->
+<section class="cta-section">
+  <div class="cta-content">
+    <h2>Ready to transform your team collaboration?</h2>
+    <p>Join thousands of students already using GroupThink to work smarter, not harder.</p>
+    <a href="{% url 'signup' %}" class="btn btn-primary btn-large">Get Started Free</a>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="footer-content">
+    <div class="footer-brand">
+      <div class="brand">GROUPTHINK</div>
+      <p>Collaboration software built for students.</p>
+    </div>
+    <div class="footer-links">
+      <div class="footer-column">
+        <h4>Product</h4>
+        <a href="#">Features</a>
+        <a href="#">Pricing</a>
+        <a href="#">Security</a>
+      </div>
+      <div class="footer-column">
+        <h4>Company</h4>
+        <a href="#">About</a>
+        <a href="#">Contact</a>
+        <a href="#">Blog</a>
+      </div>
+      <div class="footer-column">
+        <h4>Legal</h4>
+        <a href="#">Privacy</a>
+        <a href="#">Terms</a>
+        <a href="#">Cookie Policy</a>
+      </div>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <p>&copy; 2024 GroupThink. All rights reserved.</p>
+  </div>
+</footer>
+{% endblock %}

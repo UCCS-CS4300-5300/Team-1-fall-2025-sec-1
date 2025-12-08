@@ -1,0 +1,140 @@
+name: Automatically runs tests, lints, and dependency vulnerabilites scans. Prints details to console
+
+# Workflow runs if a push or pull-request
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  # Job that runs tests and prints metrics to console
+  run-test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    # Various steps required
+    steps:
+       # For loading repo code into the VM
+      - name: Load in Code
+        uses: actions/checkout@v4
+
+        # For setting up python v3.12 in the VM
+      - name: Setup Python Version
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+        # Installs the needed dependencies for running script to the VM
+      - name: Install Necessary Dependencies
+        working-directory: ./GroupThink
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+        # Sets up Django settings to include environment
+      - name: Set Django settings
+        run: echo "DJANGO_SETTINGS_MODULE=GroupThink.settings" >> $GITHUB_ENV 
+
+      - name: Collect static files
+        working-directory: ./GroupThink
+        run: python manage.py collectstatic --noinput
+
+        # Run the tests in Django
+      - name: Run tests with coverage
+        working-directory: ./GroupThink
+        run: |
+            pytest --cov=. --cov-report=term-missing --cov-report=xml:coverage.xml --cov-fail-under=80
+
+        # Posts Nice looking metrics to Pull Requests
+      - name: Post coverage comment in Pull Request
+        if: github.event_name == 'pull_request'
+        uses: MishaKav/pytest-coverage-comment@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          pytest-xml-coverage-path: GroupThink/coverage.xml
+
+  # Job that does linting
+  lint:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      # For loading repo code into the VM
+      - name: Load in Code
+        uses: actions/checkout@v4
+
+        # For setting up python v3.12 in the VM
+      - name: Setup Python Version
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Installs the needed dependencies for running script to the VM
+      - name: Install Necessary Dependencies
+        working-directory: ./GroupThink
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pylint
+
+      # Runs pylint and generates report in actions
+      - name: Run Pylint and print report
+        working-directory: ./GroupThink
+        run: |
+          pylint GroupThink home || true
+
+  # A job for finding dependency vulnerabilities
+  dependency-vulnerability-scans:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      # For loading repo code into the VM
+      - name: Load in Code
+        uses: actions/checkout@v4
+
+        # For setting up python v3.12 in the VM
+      - name: Setup Python Version
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Instaling needed dependencies and also safety 
+      - name: Install dependencies + Safety
+        working-directory: ./GroupThink
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pip-audit
+
+      # Using safety to generate CI report in actions
+      - name: Run dependency vulnerability scan (Using pip-audit)
+        working-directory: ./GroupThink
+        run: |
+          echo "===== Dependency Vulnerability Report (pip-audit) ====="
+          echo "Python version:" 
+          python --version
+          echo
+          echo "Installed packages:"
+          pip list
+          echo
+          echo "Running vulnerability scan..."
+          pip-audit -r requirements.txt -f markdown || true
+
+      # Using dependabot to generate CI report in actions
+      - name: Run dependency vulnerability scan (Using Most recent Dependabot report)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          echo "Fetching open Dependabot alerts for $GITHUB_REPOSITORY..."
+          echo
+          curl -s \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/dependabot/alerts?state=open&per_page=100"

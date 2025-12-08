@@ -1,0 +1,62 @@
+{% extends 'home/base.html' %}
+{% block title %}Create Task - GroupThink{% endblock %}
+
+{% block content %}
+<main class="form-container" style="display: flex; justify-content: center; padding: 2rem;">
+  <div style="width: 100%; max-width: 600px; background: #fff; padding: 2rem; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+    <div class="form-header" style="margin-bottom: 1.5rem;">
+      <h1 style="font-size: 1.8rem; text-align: center;">Create Task for {{ workspace.name }}</h1>
+    </div>
+
+    <form method="post" class="auth-form">
+      {% csrf_token %}
+
+      <div class="form-group" style="margin-bottom: 1rem;">
+        <label for="id_title" style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Task Title *</label>
+        {{ form.title }}
+        {% if form.title.errors %}
+          <div class="error-message" style="color: #d9534f; margin-top: 0.25rem;">{{ form.title.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="form-group" style="margin-bottom: 1rem;">
+        <label for="id_description" style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Description</label>
+        {{ form.description }}
+        {% if form.description.errors %}
+          <div class="error-message" style="color: #d9534f; margin-top: 0.25rem;">{{ form.description.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="form-group" style="margin-bottom: 1rem;">
+        <label for="id_assigned_to" style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Assign To</label>
+        {{ form.assigned_to }}
+        {% if form.assigned_to.errors %}
+          <div class="error-message" style="color: #d9534f; margin-top: 0.25rem;">{{ form.assigned_to.errors.0 }}</div>
+        {% endif %}
+        <small style="color: #666;">Leave unassigned if you want to assign it later</small>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 1rem;">
+        <label for="id_due_date" style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Due Date</label>
+        {{ form.due_date }}
+        {% if form.due_date.errors %}
+          <div class="error-message" style="color: #d9534f; margin-top: 0.25rem;">{{ form.due_date.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="form-group" style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
+        {{ form.is_personal }}
+        <label for="id_is_personal" style="margin: 0;">{{ form.is_personal.label }}</label>
+        {% if form.is_personal.errors %}
+          <div class="error-message" style="color: #d9534f; margin-left: 0.5rem;">{{ form.is_personal.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="form-actions" style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1.5rem;">
+        <a href="{% url 'workspace_detail' workspace.id %}" class="btn btn-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary">Create Task</button>
+      </div>
+    </form>
+  </div>
+</main>
+{% endblock %}
