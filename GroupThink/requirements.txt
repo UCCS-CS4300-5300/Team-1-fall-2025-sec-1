@@ -17,3 +17,4 @@ django-anymail
 channels
 daphne
 channels-redis
+pylint-django
