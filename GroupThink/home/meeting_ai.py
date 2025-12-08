@@ -216,7 +216,7 @@ Return a JSON object with this exact structure:
 
         response_text = resp.content[0].text
         data = _parse_ai_response(response_text)
-    except (json.JSONDecodeError, KeyError, IndexError, AttributeError) as err:
+    except Exception as err:  # pylint: disable=broad-exception-caught
         return {"created": 0, "reason": f"Failed to parse AI response: {err}"}
 
     items = data.get("tasks", []) if isinstance(data, dict) else []
