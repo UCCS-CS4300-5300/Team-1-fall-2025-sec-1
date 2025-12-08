@@ -9,10 +9,10 @@ https://docs.djangoproject.com/en/4.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
-# git test
-from pathlib import Path
-from dotenv import load_dotenv
 import os
+from pathlib import Path
+
+from dotenv import load_dotenv
 
 # Loads the .env file for local testing of secrets
 load_dotenv()
@@ -35,7 +35,7 @@ ALLOWED_HOSTS = [
     'editor-brackencontainer-19.devedu.io',
     '127.0.0.1',
     'app-acedcontainer-19.devedu.io',
-    'group-think.dev' 
+    'group-think.dev'
 ]
 
 CSRF_TRUSTED_ORIGINS = [
@@ -92,8 +92,6 @@ TEMPLATES = [
 WSGI_APPLICATION = 'GroupThink.wsgi.application'
 ASGI_APPLICATION = 'GroupThink.asgi.application'
 
-import os
-
 REDIS_URL = os.environ.get("REDIS_URL")
 LOCAL = os.environ.get("LOCAL")
 
@@ -122,6 +120,9 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
+        'OPTIONS': {
+            'timeout': 20,  # Increase timeout for locked database
+        }
     }
 }
 
@@ -195,7 +196,7 @@ if os.getenv('BREVO_API_KEY'):
     ANYMAIL = {
         "BREVO_API_KEY": os.getenv('BREVO_API_KEY'),
     }
-    print(f"Using Brevo API via django-anymail")
+    print("Using Brevo API via django-anymail")
 else:
     # Fallback to console backend for local testing
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
@@ -204,13 +205,3 @@ else:
 # Email settings
 DEFAULT_FROM_EMAIL = 'verifyemailnorep@gmail.com'
 EMAIL_TIMEOUT = 10
-
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-        'OPTIONS': {
-            'timeout': 20,  # Increase timeout for locked database
-        }
-    }
-}

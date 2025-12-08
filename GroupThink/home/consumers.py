@@ -1,13 +1,22 @@
 # home/consumers.py
+"""WebSocket consumers for real-time chat and transcription."""
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.contrib.auth import get_user_model
+
 from .models import WorkspaceMembership
 
 User = get_user_model()
 
 
 class WorkspaceChatConsumer(AsyncJsonWebsocketConsumer):
+    """WebSocket consumer for workspace chat functionality."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.workspace_id = None
+        self.group_name = None
+
     async def connect(self):
         self.workspace_id = int(self.scope["url_route"]["kwargs"]["workspace_id"])
         self.group_name = f"workspace_{self.workspace_id}"
@@ -25,7 +34,7 @@ class WorkspaceChatConsumer(AsyncJsonWebsocketConsumer):
         await self.channel_layer.group_add(self.group_name, self.channel_name)
         await self.accept()
 
-    async def disconnect(self, close_code):
+    async def disconnect(self, code):  # pylint: disable=unused-argument
         await self.channel_layer.group_discard(self.group_name, self.channel_name)
 
     async def receive_json(self, content, **kwargs):
@@ -46,6 +55,7 @@ class WorkspaceChatConsumer(AsyncJsonWebsocketConsumer):
         """
         await self.send_json(event)
 
+
 class TranscriptionConsumer(AsyncJsonWebsocketConsumer):
     """
     WebSocket for live meeting transcription.
@@ -53,6 +63,11 @@ class TranscriptionConsumer(AsyncJsonWebsocketConsumer):
     URL: /ws/meeting/<meeting_id>/
     Group name: "meeting_<meeting_id>"
     """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.meeting_id = None
+        self.group_name = None
 
     async def connect(self):
         self.meeting_id = int(self.scope["url_route"]["kwargs"]["meeting_id"])
@@ -62,7 +77,7 @@ class TranscriptionConsumer(AsyncJsonWebsocketConsumer):
         await self.channel_layer.group_add(self.group_name, self.channel_name)
         await self.accept()
 
-    async def disconnect(self, close_code):
+    async def disconnect(self, code):  # pylint: disable=unused-argument
         await self.channel_layer.group_discard(self.group_name, self.channel_name)
 
     async def receive_json(self, content, **kwargs):

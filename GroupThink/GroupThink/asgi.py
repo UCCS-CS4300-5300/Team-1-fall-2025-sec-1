@@ -1,7 +1,13 @@
+"""
+ASGI config for GroupThink project.
+
+It exposes the ASGI callable as a module-level variable named ``application``.
+"""
 import os
-from django.core.asgi import get_asgi_application
-from channels.routing import ProtocolTypeRouter, URLRouter
+
 from channels.auth import AuthMiddlewareStack
+from channels.routing import ProtocolTypeRouter, URLRouter
+from django.core.asgi import get_asgi_application
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "GroupThink.settings")
 
@@ -10,7 +16,7 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "GroupThink.settings")
 django_asgi_app = get_asgi_application()
 
 # Import routing AFTER django_asgi_app is created
-import GroupThink.routing
+import GroupThink.routing  # noqa: E402  pylint: disable=wrong-import-position
 
 # Main ASGI application
 application = ProtocolTypeRouter(

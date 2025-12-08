@@ -1,9 +1,9 @@
-from django.db import models
-from django.contrib.auth.models import User
-from django.utils.crypto import get_random_string
+"""Django models for the GroupThink application."""
 from django.conf import settings
+from django.contrib.auth.models import User
+from django.db import models
 from django.utils import timezone
-import uuid
+from django.utils.crypto import get_random_string
 
 
 class PendingUser(models.Model):
@@ -20,6 +20,7 @@ class PendingUser(models.Model):
         return f"Pending: {self.username} ({self.email})"
 
     def is_expired(self):
+        """Check if this pending user has expired."""
         return timezone.now() >= self.expires_at
 
 
@@ -39,9 +40,11 @@ class UserProfile(models.Model):
 class Workspace(models.Model):
     """Team for collaboration"""
     name = models.CharField(max_length=100)
-    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='owned_workspaces')
+    created_by = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='owned_workspaces'
+    )
     invite_code = models.CharField(max_length=20, unique=True, blank=True)
-    code_visible_to_members = models.BooleanField(default=False)  # Admin controls code visibility
+    code_visible_to_members = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -82,8 +85,12 @@ class WorkspaceMembership(models.Model):
         ('member', 'Member'),
     ]
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='workspace_memberships')
-    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name='memberships')
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='workspace_memberships'
+    )
+    workspace = models.ForeignKey(
+        Workspace, on_delete=models.CASCADE, related_name='memberships'
+    )
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='member')
     joined_at = models.DateTimeField(auto_now_add=True)
 
@@ -95,6 +102,7 @@ class WorkspaceMembership(models.Model):
 
 
 class Meeting(models.Model):
+    """Meeting model for video conferences."""
     STATUS_CHOICES = [
         ('not_started', 'Not Started'),
         ('live', 'Live'),
@@ -103,20 +111,31 @@ class Meeting(models.Model):
 
     title = models.CharField(max_length=100)
     room_name = models.CharField(max_length=100, unique=True)
-    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_meetings', null=True, blank=True)
-    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name='meetings', null=True, blank=True)
+    created_by = models.ForeignKey(
+        User, on_delete=models.CASCADE,
+        related_name='created_meetings', null=True, blank=True
+    )
+    workspace = models.ForeignKey(
+        Workspace, on_delete=models.CASCADE,
+        related_name='meetings', null=True, blank=True
+    )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='not_started')
     started_at = models.DateTimeField(null=True, blank=True)
     ended_at = models.DateTimeField(null=True, blank=True)
     recording_url = models.URLField(max_length=500, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    participants = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name='meetings_participating',
-        blank=True,)
+    participants = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        related_name='meetings_participating',
+        blank=True,
+    )
 
     def __str__(self):
         return f"{self.title} - {self.get_status_display()}"
 
+
 class MeetingTranscriptChunk(models.Model):
+    """Chunk of transcribed text from a meeting."""
     meeting = models.ForeignKey(Meeting, on_delete=models.CASCADE, related_name="chunks")
     text = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
@@ -133,9 +152,17 @@ class Task(models.Model):
 
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
-    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name='tasks', null=True, blank=True)
-    assigned_to = models.ForeignKey(User, on_delete=models.CASCADE, related_name='assigned_tasks', null=True, blank=True)
-    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_tasks')
+    workspace = models.ForeignKey(
+        Workspace, on_delete=models.CASCADE,
+        related_name='tasks', null=True, blank=True
+    )
+    assigned_to = models.ForeignKey(
+        User, on_delete=models.CASCADE,
+        related_name='assigned_tasks', null=True, blank=True
+    )
+    created_by = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='created_tasks'
+    )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='todo')
     due_date = models.DateField(null=True, blank=True)
     is_personal = models.BooleanField(default=False)  # Personal task vs team task
@@ -151,7 +178,6 @@ class Task(models.Model):
 
     def mark_complete(self):
         """Mark task as complete"""
-        from django.utils import timezone
         self.status = 'done'
         if not self.completed_at:
             self.completed_at = timezone.now()
@@ -166,7 +192,9 @@ class Task(models.Model):
         }
         return colors.get(self.status, '#gray')
 
+
 class Recording(models.Model):
+    """Recording of a meeting."""
     meeting = models.ForeignKey(Meeting, on_delete=models.CASCADE, related_name="recordings")
     storage_url = models.URLField()
     duration_sec = models.PositiveIntegerField(null=True, blank=True)
@@ -177,6 +205,7 @@ class Recording(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def is_expired(self):
+        """Check if this recording has expired."""
         return timezone.now() >= self.expires_at
 
     def __str__(self):
@@ -185,8 +214,12 @@ class Recording(models.Model):
 
 class ChatMessage(models.Model):
     """Chat messages for team communication"""
-    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name='chat_messages')
-    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_messages')
+    workspace = models.ForeignKey(
+        Workspace, on_delete=models.CASCADE, related_name='chat_messages'
+    )
+    sender = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='sent_messages'
+    )
     message = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -199,7 +232,9 @@ class ChatMessage(models.Model):
 
 class ChatAttachment(models.Model):
     """File attachments for chat messages"""
-    chat_message = models.ForeignKey(ChatMessage, on_delete=models.CASCADE, related_name='attachments')
+    chat_message = models.ForeignKey(
+        ChatMessage, on_delete=models.CASCADE, related_name='attachments'
+    )
     file = models.FileField(upload_to='chat_attachments/%Y/%m/%d/')
     file_name = models.CharField(max_length=255)
     file_size = models.IntegerField()  # Size in bytes
@@ -216,5 +251,3 @@ class ChatAttachment(models.Model):
                 return f"{size:.1f} {unit}"
             size /= 1024.0
         return f"{size:.1f} TB"
-
-

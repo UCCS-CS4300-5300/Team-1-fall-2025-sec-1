@@ -1,54 +1,49 @@
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth import login, authenticate, logout
-from django.contrib.auth.decorators import login_required
-from django.contrib.auth.models import User
-from django.contrib import messages
-from django.utils.crypto import get_random_string
-from django.utils import timezone
-from django.views.decorators.csrf import csrf_exempt
-from django.http import HttpResponse, JsonResponse, HttpResponseForbidden
-from datetime import timedelta
-from .meeting_ai import extract_tasks_from_meeting_threaded
+"""Views for the GroupThink application."""
+import json
+import os
 import threading
-from .recording_webhook_handlers import handle_recording_uploaded
-from django.contrib.auth.decorators import login_required
-from django.shortcuts import redirect
-from django.contrib import messages
-from channels.layers import get_channel_layer
+import uuid
+from datetime import timedelta
+
 from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
+from django.conf import settings
+from django.contrib import messages
+from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.hashers import make_password
+from django.contrib.auth.models import User
+from django.core.mail import EmailMultiAlternatives
+from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
 from django.utils import timezone
+from django.utils.crypto import get_random_string
+from django.views.decorators.csrf import csrf_exempt
 
-
-
-# from django.core.mail import send_mail  # For future email verification
-# from django.conf import settings  # For future email verification
-
+from .forms import (
+    JoinWorkspaceForm,
+    LoginForm,
+    SignUpForm,
+    TaskForm,
+    WorkspaceForm,
+)
+from .jaas_functions import generate_jaas_token
+from .meeting_ai import extract_tasks_from_meeting_threaded
 from .models import (
+    ChatAttachment,
+    ChatMessage,
     Meeting,
+    PendingUser,
+    Recording,
+    Task,
     UserProfile,
     Workspace,
     WorkspaceMembership,
-    Task,
-    MeetingTranscriptChunk,
-    Recording,
-    ChatMessage,
-    ChatAttachment,
-    PendingUser
 )
-from .forms import (
-    SignUpForm,
-    LoginForm,
-    WorkspaceForm,
-    JoinWorkspaceForm,
-    TaskForm,
-)
-from .jaas_functions import generate_jaas_token
+from .recording_webhook_handlers import handle_recording_uploaded
 
-import uuid
-import os
-import json
 
-# Create your views here.
 def index(request):
     """Renders home page, redirects to dashboard if logged in"""
     if request.user.is_authenticated:
@@ -66,16 +61,12 @@ def signup_view(request):
     if request.method == 'POST':
         form = SignUpForm(request.POST)
         if form.is_valid():
-            from django.contrib.auth.hashers import make_password
-            from datetime import timedelta
-            from .models import PendingUser
-
             username = form.cleaned_data['username']
             email = form.cleaned_data['email']
             display_name = form.cleaned_data['display_name']
             password = form.cleaned_data['password1']
 
-            # Check if username or email already exists (in User or PendingUser)
+            # Check if username or email already exists
             if User.objects.filter(username=username).exists():
                 messages.error(request, 'Username already taken.')
                 return render(request, 'home/signup.html', {'form': form})
@@ -93,30 +84,29 @@ def signup_view(request):
             pending_user = PendingUser.objects.create(
                 username=username,
                 email=email,
-                password_hash=make_password(password),  # Hash the password
+                password_hash=make_password(password),
                 display_name=display_name,
                 verification_token=verification_token,
                 expires_at=timezone.now() + timedelta(hours=24)
             )
 
             # Send verification email
-            from django.core.mail import EmailMultiAlternatives
-            from django.template.loader import render_to_string
-            from django.conf import settings
+            verification_link = request.build_absolute_uri(
+                f'/verify-email/{verification_token}/'
+            )
 
-            verification_link = request.build_absolute_uri(f'/verify-email/{verification_token}/')
-
-            # Context for email templates
             context = {
                 'username': username,
                 'verification_link': verification_link,
             }
 
-            # Render email templates
-            text_content = render_to_string('home/emails/verification_email.txt', context)
-            html_content = render_to_string('home/emails/verification_email.html', context)
+            text_content = render_to_string(
+                'home/emails/verification_email.txt', context
+            )
+            html_content = render_to_string(
+                'home/emails/verification_email.html', context
+            )
 
-            # Send email with both text and HTML versions
             try:
                 email_obj = EmailMultiAlternatives(
                     subject='Verify your GroupThink account',
@@ -127,15 +117,16 @@ def signup_view(request):
                 email_obj.attach_alternative(html_content, "text/html")
                 email_obj.send()
 
-                # Redirect to "verify your email" page
                 return render(request, 'home/verify_email_sent.html', {
                     'username': username,
                     'email': email,
                 })
-            except Exception as e:
-                # Delete pending user if email fails
+            except Exception as err:  # pylint: disable=broad-exception-caught
                 pending_user.delete()
-                messages.error(request, f'Could not send verification email. Error: {str(e)}')
+                messages.error(
+                    request,
+                    f'Could not send verification email. Error: {str(err)}'
+                )
                 return render(request, 'home/signup.html', {'form': form})
     else:
         form = SignUpForm()
@@ -156,7 +147,6 @@ def login_view(request):
             remember_me = form.cleaned_data.get('remember_me', False)
 
             # Check if user entered email instead of username
-            user = None
             if '@' in username_or_email:
                 try:
                     user_obj = User.objects.get(email=username_or_email)
@@ -170,7 +160,11 @@ def login_view(request):
             try:
                 user_check = User.objects.get(username=username)
                 if not user_check.is_active:
-                    messages.error(request, 'Please verify your email address before logging in. Check your inbox for the verification link.')
+                    messages.error(
+                        request,
+                        'Please verify your email address before logging in. '
+                        'Check your inbox for the verification link.'
+                    )
                     return render(request, 'home/login.html', {'form': form})
             except User.DoesNotExist:
                 pass
@@ -181,8 +175,7 @@ def login_view(request):
             if user is not None:
                 login(request, user)
 
-                # ✅ Ensure profile exists to prevent "User has no profile" error
-                from home.models import UserProfile
+                # Ensure profile exists
                 profile, _ = UserProfile.objects.get_or_create(
                     user=user,
                     defaults={"display_name": user.username}
@@ -190,14 +183,14 @@ def login_view(request):
 
                 # Set session expiry
                 if not remember_me:
-                    request.session.set_expiry(0)  # Session expires when browser closes
+                    request.session.set_expiry(0)
                 else:
                     request.session.set_expiry(1209600)  # 2 weeks
 
                 messages.success(request, f'Welcome back, {profile.display_name}!')
                 return redirect('dashboard')
-            else:
-                messages.error(request, 'Invalid username/email or password.')
+
+            messages.error(request, 'Invalid username/email or password.')
     else:
         form = LoginForm()
 
@@ -217,19 +210,14 @@ def logout_view(request):
 @login_required
 def dashboard(request):
     """User dashboard showing all workspaces"""
-    # Get all workspaces user is a member of
     memberships = request.user.workspace_memberships.select_related('workspace').all()
     workspaces = [m.workspace for m in memberships]
-
-    # Get owned workspaces
     owned_workspaces = request.user.owned_workspaces.all()
 
-    # Add task counts to each workspace for template
     for workspace in workspaces:
         workspace.total_tasks = workspace.tasks.count()
         workspace.completed_tasks = workspace.tasks.filter(status='done').count()
 
-    # Calculate pending tasks for quick actions
     pending_tasks_count = request.user.assigned_tasks.exclude(status='done').count()
 
     context = {
@@ -251,13 +239,16 @@ def create_workspace(request):
                 name=form.cleaned_data['name'],
                 created_by=request.user
             )
-            # Add creator as admin member
             WorkspaceMembership.objects.create(
                 user=request.user,
                 workspace=workspace,
                 role='admin'
             )
-            messages.success(request, f'Workspace "{workspace.name}" created! Invite code: {workspace.invite_code}')
+            messages.success(
+                request,
+                f'Workspace "{workspace.name}" created! '
+                f'Invite code: {workspace.invite_code}'
+            )
             return redirect('workspace_detail', workspace_id=workspace.id)
     else:
         form = WorkspaceForm()
@@ -275,16 +266,23 @@ def join_workspace(request):
             try:
                 workspace = Workspace.objects.get(invite_code=invite_code)
 
-                # Check if already a member
-                if WorkspaceMembership.objects.filter(user=request.user, workspace=workspace).exists():
-                    messages.warning(request, f'You are already a member of "{workspace.name}".')
+                if WorkspaceMembership.objects.filter(
+                    user=request.user, workspace=workspace
+                ).exists():
+                    messages.warning(
+                        request,
+                        f'You are already a member of "{workspace.name}".'
+                    )
                 else:
                     WorkspaceMembership.objects.create(
                         user=request.user,
                         workspace=workspace,
                         role='member'
                     )
-                    messages.success(request, f'Successfully joined "{workspace.name}"!')
+                    messages.success(
+                        request,
+                        f'Successfully joined "{workspace.name}"!'
+                    )
 
                 return redirect('workspace_detail', workspace_id=workspace.id)
             except Workspace.DoesNotExist:
@@ -300,13 +298,13 @@ def workspace_detail(request, workspace_id):
     """View workspace details and meetings"""
     workspace = get_object_or_404(Workspace, id=workspace_id)
 
-    # Check if user is a member
-    membership = WorkspaceMembership.objects.filter(user=request.user, workspace=workspace).first()
+    membership = WorkspaceMembership.objects.filter(
+        user=request.user, workspace=workspace
+    ).first()
     if not membership:
         messages.error(request, 'You do not have access to this workspace.')
         return redirect('dashboard')
 
-    # Get all meetings in this workspace
     meetings = workspace.meetings.all().order_by('-created_at')
     members = workspace.memberships.select_related('user', 'user__profile').all()
 
@@ -319,12 +317,11 @@ def workspace_detail(request, workspace_id):
     return render(request, 'home/workspace_detail.html', context)
 
 
-# ============ MEETING VIEWS (Updated) ============
+# ============ MEETING VIEWS ============
 
 @login_required
 def create_meeting(request):
-    """Renders create meeting page, can redirect to join meeting if meeting created"""
-    # Get user's workspaces for dropdown
+    """Renders create meeting page"""
     memberships = request.user.workspace_memberships.select_related('workspace').all()
     workspaces = [m.workspace for m in memberships]
 
@@ -334,8 +331,9 @@ def create_meeting(request):
 
         if workspace_id:
             workspace = get_object_or_404(Workspace, id=workspace_id)
-            # Verify user is a member
-            if not WorkspaceMembership.objects.filter(user=request.user, workspace=workspace).exists():
+            if not WorkspaceMembership.objects.filter(
+                user=request.user, workspace=workspace
+            ).exists():
                 messages.error(request, 'You do not have access to this workspace.')
                 return redirect('create_meeting')
 
@@ -355,9 +353,10 @@ def join_meeting(request, room_name):
     """Directs user to meeting page"""
     meeting = get_object_or_404(Meeting, room_name=room_name)
 
-    # Check if user has access (either through workspace or if meeting has no workspace)
     if meeting.workspace:
-        if not WorkspaceMembership.objects.filter(user=request.user, workspace=meeting.workspace).exists():
+        if not WorkspaceMembership.objects.filter(
+            user=request.user, workspace=meeting.workspace
+        ).exists():
             messages.error(request, 'You do not have access to this meeting.')
             return redirect('dashboard')
 
@@ -375,16 +374,11 @@ def join_meeting(request, room_name):
     })
 
 
-# ============ NEW FEATURES: Meeting Management ============
 @login_required
 def generate_tasks_from_meeting(request, meeting_id):
-    """
-    Use AI to extract tasks from a meeting's transcript and create Task rows.
-    Runs in background thread so user doesn't wait for AI processing.
-    """
+    """Use AI to extract tasks from a meeting's transcript."""
     meeting = get_object_or_404(Meeting, id=meeting_id)
 
-    # Permission check
     is_creator = meeting.created_by == request.user
     is_workspace_member = False
     if meeting.workspace:
@@ -394,36 +388,37 @@ def generate_tasks_from_meeting(request, meeting_id):
         ).exists()
 
     if not (is_creator or is_workspace_member):
-        messages.error(request, "You do not have permission to generate tasks for this meeting.")
+        messages.error(
+            request,
+            "You do not have permission to generate tasks for this meeting."
+        )
         return redirect('dashboard')
 
     if request.method != "POST":
         return HttpResponseForbidden("Invalid request method.")
 
-    # Start task generation in background thread
     thread = threading.Thread(
         target=extract_tasks_from_meeting_threaded,
         args=(meeting.id, request.user.id),
-        daemon=True  # Daemon thread won't prevent app shutdown
+        daemon=True
     )
     thread.start()
 
-    # Immediately return success message
     messages.success(
-        request, 
-        "Task generation started! Tasks will appear shortly as the AI processes the transcript."
+        request,
+        "Task generation started! Tasks will appear shortly."
     )
 
     if meeting.workspace:
         return redirect('workspace_detail', workspace_id=meeting.workspace.id)
     return redirect('dashboard')
 
+
 @login_required
 def delete_meeting(request, meeting_id):
     """Delete a meeting (creator only)"""
     meeting = get_object_or_404(Meeting, id=meeting_id)
 
-    # Check if user is the creator or workspace admin
     is_creator = meeting.created_by == request.user
     is_workspace_admin = False
 
@@ -455,7 +450,6 @@ def update_meeting_status(request, meeting_id):
     """Update meeting status (Live, Not Started, Ended)"""
     meeting = get_object_or_404(Meeting, id=meeting_id)
 
-    # Check if user is the creator or workspace admin
     is_creator = meeting.created_by == request.user
     is_workspace_admin = False
 
@@ -472,8 +466,6 @@ def update_meeting_status(request, meeting_id):
         return redirect('dashboard')
 
     if request.method == 'POST':
-        from django.utils import timezone
-        from django.http import HttpResponse
         new_status = request.POST.get('status')
 
         if new_status in ['not_started', 'live', 'ended']:
@@ -485,33 +477,31 @@ def update_meeting_status(request, meeting_id):
                 meeting.ended_at = timezone.now()
 
             meeting.save()
-            messages.success(request, f'Meeting status updated to "{meeting.get_status_display()}".')
+            messages.success(
+                request,
+                f'Meeting status updated to "{meeting.get_status_display()}".'
+            )
         else:
             messages.error(request, 'Invalid status.')
 
-        # If ending meeting, always go to dashboard
         if new_status == 'ended':
             return redirect('dashboard')
 
-        # For marking as live (AJAX request), just return success
-        # The JavaScript will handle reloading the page
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return HttpResponse('OK')
 
-    # Default redirects
     if meeting.workspace:
         return redirect('workspace_detail', workspace_id=meeting.workspace.id)
     return redirect('dashboard')
 
 
-# ============ NEW FEATURES: Team/Workspace Management ============
+# ============ WORKSPACE MANAGEMENT ============
 
 @login_required
 def remove_member(request, workspace_id, user_id):
     """Remove a member from a workspace (admin only)"""
     workspace = get_object_or_404(Workspace, id=workspace_id)
 
-    # Check if current user is admin
     admin_membership = WorkspaceMembership.objects.filter(
         user=request.user,
         workspace=workspace,
@@ -522,7 +512,6 @@ def remove_member(request, workspace_id, user_id):
         messages.error(request, 'You do not have permission to remove members.')
         return redirect('workspace_detail', workspace_id=workspace_id)
 
-    # Get the membership to remove
     user_to_remove = get_object_or_404(User, id=user_id)
     membership_to_remove = WorkspaceMembership.objects.filter(
         user=user_to_remove,
@@ -533,12 +522,10 @@ def remove_member(request, workspace_id, user_id):
         messages.error(request, 'User is not a member of this workspace.')
         return redirect('workspace_detail', workspace_id=workspace_id)
 
-    # Prevent removing the workspace creator
     if user_to_remove == workspace.created_by:
         messages.error(request, 'Cannot remove the workspace creator.')
         return redirect('workspace_detail', workspace_id=workspace_id)
 
-    # Remove the membership
     username = user_to_remove.username
     membership_to_remove.delete()
     messages.success(request, f'Removed {username} from the workspace.')
@@ -551,7 +538,6 @@ def toggle_code_visibility(request, workspace_id):
     """Toggle whether team members can see the invite code (admin only)"""
     workspace = get_object_or_404(Workspace, id=workspace_id)
 
-    # Check if current user is admin
     admin_membership = WorkspaceMembership.objects.filter(
         user=request.user,
         workspace=workspace,
@@ -559,10 +545,12 @@ def toggle_code_visibility(request, workspace_id):
     ).first()
 
     if not admin_membership:
-        messages.error(request, 'You do not have permission to change code visibility.')
+        messages.error(
+            request,
+            'You do not have permission to change code visibility.'
+        )
         return redirect('workspace_detail', workspace_id=workspace_id)
 
-    # Toggle visibility
     workspace.code_visible_to_members = not workspace.code_visible_to_members
     workspace.save()
 
@@ -573,10 +561,11 @@ def toggle_code_visibility(request, workspace_id):
 
     return redirect('workspace_detail', workspace_id=workspace_id)
 
+
 def delete_workspace(request, pk):
+    """Delete a workspace (admin only)"""
     workspace = get_object_or_404(Workspace, pk=pk)
 
-    # Check if the current user is an admin of this workspace
     is_admin = WorkspaceMembership.objects.filter(
         workspace=workspace,
         user=request.user,
@@ -598,20 +587,22 @@ def delete_workspace(request, pk):
 @login_required
 def my_tasks(request):
     """Show all tasks assigned to current user across all teams"""
-    # Get all tasks assigned to the user
-    all_tasks = Task.objects.filter(assigned_to=request.user).select_related('workspace', 'created_by').order_by('-created_at')
+    all_tasks = Task.objects.filter(
+        assigned_to=request.user
+    ).select_related('workspace', 'created_by').order_by('-created_at')
 
-    # Filter by status if requested
     status_filter = request.GET.get('status', 'all')
     if status_filter != 'all':
         all_tasks = all_tasks.filter(status=status_filter)
 
-    # Calculate overall progress
     total_tasks = Task.objects.filter(assigned_to=request.user).count()
-    completed_tasks = Task.objects.filter(assigned_to=request.user, status='done').count()
-    progress_percentage = int((completed_tasks / total_tasks) * 100) if total_tasks > 0 else 0
+    completed_tasks = Task.objects.filter(
+        assigned_to=request.user, status='done'
+    ).count()
+    progress_percentage = (
+        int((completed_tasks / total_tasks) * 100) if total_tasks > 0 else 0
+    )
 
-    # Group tasks by team
     team_tasks = {}
     personal_tasks = []
 
@@ -638,11 +629,12 @@ def my_tasks(request):
 
 @login_required
 def create_task(request, workspace_id):
-    """Create new task in team (admin only can assign, members can create personal tasks)"""
+    """Create new task in team"""
     workspace = get_object_or_404(Workspace, id=workspace_id)
 
-    # Check if user is a member
-    membership = WorkspaceMembership.objects.filter(user=request.user, workspace=workspace).first()
+    membership = WorkspaceMembership.objects.filter(
+        user=request.user, workspace=workspace
+    ).first()
     if not membership:
         messages.error(request, 'You do not have access to this workspace.')
         return redirect('dashboard')
@@ -650,7 +642,6 @@ def create_task(request, workspace_id):
     if request.method == 'POST':
         form = TaskForm(request.POST, workspace=workspace)
         if form.is_valid():
-            # Create the task
             assigned_to_id = form.cleaned_data.get('assigned_to')
             assigned_to = None
 
@@ -660,7 +651,9 @@ def create_task(request, workspace_id):
             task = Task.objects.create(
                 title=form.cleaned_data['title'],
                 description=form.cleaned_data.get('description', ''),
-                workspace=workspace if not form.cleaned_data.get('is_personal') else None,
+                workspace=(
+                    workspace if not form.cleaned_data.get('is_personal') else None
+                ),
                 assigned_to=assigned_to,
                 created_by=request.user,
                 due_date=form.cleaned_data.get('due_date'),
@@ -684,7 +677,6 @@ def update_task_status(request, task_id):
     """Update task status (To Do, In Progress, Done)"""
     task = get_object_or_404(Task, id=task_id)
 
-    # Check if user has permission (assigned to them, or they're admin of the workspace, or task creator)
     is_assigned = task.assigned_to == request.user
     is_creator = task.created_by == request.user
     is_admin = False
@@ -707,24 +699,24 @@ def update_task_status(request, task_id):
         if new_status in ['todo', 'in_progress', 'done']:
             task.status = new_status
 
-            # Mark completion time if done
             if new_status == 'done':
                 task.mark_complete()
             else:
                 task.save()
 
-            messages.success(request, f'Task status updated to "{task.get_status_display()}".')
+            messages.success(
+                request,
+                f'Task status updated to "{task.get_status_display()}".'
+            )
         else:
             messages.error(request, 'Invalid status.')
 
-    # Redirect back to appropriate page
     referer = request.META.get('HTTP_REFERER')
     if referer and 'my-tasks' in referer:
         return redirect('my_tasks')
-    elif task.workspace:
+    if task.workspace:
         return redirect('workspace_detail', workspace_id=task.workspace.id)
-    else:
-        return redirect('my_tasks')
+    return redirect('my_tasks')
 
 
 @login_required
@@ -732,7 +724,6 @@ def delete_task(request, task_id):
     """Delete a task (creator or workspace admin only)"""
     task = get_object_or_404(Task, id=task_id)
 
-    # Check if user has permission
     is_creator = task.created_by == request.user
     is_admin = False
 
@@ -754,65 +745,62 @@ def delete_task(request, task_id):
 
     messages.success(request, f'Task "{task_title}" has been deleted.')
 
-    # Redirect back to appropriate page
     referer = request.META.get('HTTP_REFERER')
     if referer and 'my-tasks' in referer:
         return redirect('my_tasks')
-    elif workspace_id:
+    if workspace_id:
         return redirect('workspace_detail', workspace_id=workspace_id)
-    else:
-        return redirect('my_tasks')
+    return redirect('my_tasks')
 
 
-# ============ ETC ============
+# ============ WEBHOOKS & TRANSCRIPTS ============
 
-# For recieving data from JaaS regarding transcripts
 @csrf_exempt
 def jaas_webhook(request):
+    """Handle webhooks from JaaS (Jitsi as a Service)"""
     try:
         raw = request.body.decode("utf-8")
-    except Exception:
+    except Exception:  # pylint: disable=broad-exception-caught
         raw = ""
     print("WEBHOOK RAW:", raw[:400])
-    
+
     try:
         payload = json.loads(raw or "{}")
-    except Exception as e:
-        print("WEBHOOK JSON ERROR:", repr(e))
+    except json.JSONDecodeError as err:
+        print("WEBHOOK JSON ERROR:", repr(err))
         payload = {}
-    
+
     event = payload.get("eventType")
-    
-    # ---- ROOM IDENT ----
+
+    # Room identification
     data = payload.get("data") or {}
-    # fqn is TOP-LEVEL in your logs; keep robust fallbacks too
     room_full = (
-        payload.get("fqn")              
-        or data.get("fqn")              
-        or data.get("roomName")         
-        or payload.get("roomName")      
-        or data.get("room")             
+        payload.get("fqn")
+        or data.get("fqn")
+        or data.get("roomName")
+        or payload.get("roomName")
+        or data.get("room")
         or ""
     ).strip()
-    
+
     room_slug = room_full.rsplit("/", 1)[-1] if room_full else ""
-    
-    # ---- TEXT ----
-    text = (data.get("final") or data.get("stable") or data.get("text") or "").strip()
+
+    # Text extraction
+    text = (
+        data.get("final") or data.get("stable") or data.get("text") or ""
+    ).strip()
     participant = data.get("participant") or {}
     speaker = participant.get("name") or participant.get("id") or ""
-    
+
     print(f"WEBHOOK PARSED: event={event!r} slug={room_slug!r} text_head={text[:80]!r}")
-    
+
     if event == "TRANSCRIPTION_CHUNK_RECEIVED" and room_slug:
-        if text:  # Only if there's actual text
-            from .models import Meeting
-            m = Meeting.objects.filter(room_name=room_slug).first()
-            if not m:
+        if text:
+            meeting = Meeting.objects.filter(room_name=room_slug).first()
+            if not meeting:
                 print("WEBHOOK NO MEETING:", room_slug)
             else:
-                # Check if this is a duplicate of the last chunk (same speaker, similar text)
-                last_chunk = m.chunks.order_by('-created_at').first()
+                last_chunk = meeting.chunks.order_by('-created_at').first()
                 is_duplicate = (
                     last_chunk and
                     last_chunk.speaker == speaker and
@@ -820,17 +808,16 @@ def jaas_webhook(request):
                 )
 
                 if not is_duplicate:
-                    chunk = m.chunks.create(text=text, speaker=speaker)
-                    print("WEBHOOK SAVED → meeting_id:", m.id)
+                    chunk = meeting.chunks.create(text=text, speaker=speaker)
+                    print("WEBHOOK SAVED -> meeting_id:", meeting.id)
 
-                    # 🔊 Broadcast this chunk over WebSocket to all viewers of this meeting
                     channel_layer = get_channel_layer()
                     if channel_layer is not None:
                         async_to_sync(channel_layer.group_send)(
-                            f"meeting_{m.id}",  # group name tied to meeting id
+                            f"meeting_{meeting.id}",
                             {
                                 "type": "transcription.chunk",
-                                "meeting_id": m.id,
+                                "meeting_id": meeting.id,
                                 "text": chunk.text,
                                 "speaker": chunk.speaker or "Unknown",
                                 "timestamp": chunk.created_at.isoformat(),
@@ -839,29 +826,29 @@ def jaas_webhook(request):
                 else:
                     print("WEBHOOK SKIPPED DUPLICATE")
 
-    
     if event == "RECORDING_UPLOADED":
         handle_recording_uploaded(room_full, data)
-    
+
     return JsonResponse({"ok": True})
 
-# Grabs transcript data to send to live transcription text box
+
 def get_transcript(request, room_name: str):
+    """Get transcript data for a meeting"""
     slug = (room_name or "").rsplit("/", 1)[-1]
     meeting = get_object_or_404(Meeting, room_name=slug)
 
-    # Prints in order of time said
     rows = meeting.chunks.order_by("created_at").values_list("speaker", "text")
     lines = []
 
-    # Ensures to give each line its appropriate speaker.
     for speaker, text in rows:
         name = (speaker or "Unknown").strip()
         lines.append(f"{name}: {text}")
     return HttpResponse("\n".join(lines), content_type="text/plain")
 
+
 @login_required
 def my_recordings(request):
+    """Show all recordings the user has access to"""
     user = request.user
 
     recordings = (
@@ -875,14 +862,16 @@ def my_recordings(request):
         "recordings": recordings,
     })
 
+
 @login_required
 def recording_detail(request, pk):
+    """Show details of a specific recording"""
     recording = get_object_or_404(Recording, pk=pk)
     meeting = recording.meeting
     user = request.user
 
     is_participant = meeting.participants.filter(id=user.id).exists()
-    is_creator = (meeting.created_by_id == user.id)
+    is_creator = meeting.created_by_id == user.id
 
     if not (is_participant or is_creator):
         messages.error(request, "You do not have access to this recording.")
@@ -907,23 +896,24 @@ def send_chat_message(request, workspace_id):
 
     workspace = get_object_or_404(Workspace, id=workspace_id)
 
-    # Check if user is a member
-    membership = WorkspaceMembership.objects.filter(user=request.user, workspace=workspace).first()
+    membership = WorkspaceMembership.objects.filter(
+        user=request.user, workspace=workspace
+    ).first()
     if not membership:
-        return JsonResponse({'error': 'You are not a member of this workspace'}, status=403)
+        return JsonResponse(
+            {'error': 'You are not a member of this workspace'},
+            status=403
+        )
 
     message_text = request.POST.get('message', '').strip()
     uploaded_file = request.FILES.get('file')
 
-    # Validate that there's either a message or a file
     if not message_text and not uploaded_file:
         return JsonResponse({'error': 'Message or file required'}, status=400)
 
-    # If no message text but there's a file, use a default message
     if not message_text and uploaded_file:
         message_text = f"[File: {uploaded_file.name}]"
 
-    # Create the chat message
     chat_message = ChatMessage.objects.create(
         workspace=workspace,
         sender=request.user,
@@ -932,15 +922,15 @@ def send_chat_message(request, workspace_id):
 
     attachments_payload = []
 
-    # Handle file upload if present
     if uploaded_file:
-        # Check file size (10MB = 10 * 1024 * 1024 bytes)
         max_size = 10 * 1024 * 1024
         if uploaded_file.size > max_size:
             chat_message.delete()
-            return JsonResponse({'error': 'File size exceeds 10MB limit'}, status=400)
+            return JsonResponse(
+                {'error': 'File size exceeds 10MB limit'},
+                status=400
+            )
 
-        # Create attachment
         attachment = ChatAttachment.objects.create(
             chat_message=chat_message,
             file=uploaded_file,
@@ -955,29 +945,27 @@ def send_chat_message(request, workspace_id):
             'file_size': attachment.get_file_size_display(),
         })
 
-    # Build sender display name
-    sender_display = getattr(request.user.profile, "display_name", "") or request.user.username
+    sender_display = (
+        getattr(request.user.profile, "display_name", "") or request.user.username
+    )
 
-    # Build event payload for WebSocket clients
     event = {
-        "type": "chat.message",                
+        "type": "chat.message",
         "id": chat_message.id,
         "workspace_id": workspace.id,
-        "sender": sender_display,             
+        "sender": sender_display,
         "sender_username": request.user.username,
         "message": chat_message.message,
         "timestamp": chat_message.created_at.isoformat(),
         "attachments": attachments_payload,
     }
 
-    # Broadcast to all sockets for this workspace
     channel_layer = get_channel_layer()
     async_to_sync(channel_layer.group_send)(
         f"workspace_{workspace.id}",
         event,
     )
 
-    # HTTP response for the sender (your old behavior)
     return JsonResponse({
         'success': True,
         'message_id': chat_message.id,
@@ -986,23 +974,28 @@ def send_chat_message(request, workspace_id):
         'timestamp': chat_message.created_at.isoformat(),
     })
 
+
 @login_required
 def get_chat_messages(request, workspace_id):
     """Get all chat messages for a workspace"""
     workspace = get_object_or_404(Workspace, id=workspace_id)
 
-    # Check if user is a member
-    membership = WorkspaceMembership.objects.filter(user=request.user, workspace=workspace).first()
+    membership = WorkspaceMembership.objects.filter(
+        user=request.user, workspace=workspace
+    ).first()
     if not membership:
-        return JsonResponse({'error': 'You are not a member of this workspace'}, status=403)
+        return JsonResponse(
+            {'error': 'You are not a member of this workspace'},
+            status=403
+        )
 
-    # Get messages after a certain ID if provided (for polling / initial load)
     since_id = request.GET.get('since_id', 0)
-    messages_qs = workspace.chat_messages.filter(id__gt=since_id).select_related('sender', 'sender__profile')
+    messages_qs = workspace.chat_messages.filter(
+        id__gt=since_id
+    ).select_related('sender', 'sender__profile')
 
     messages_data = []
     for msg in messages_qs:
-        # Get attachments for this message
         attachments = []
         for attachment in msg.attachments.all():
             attachments.append({
@@ -1024,61 +1017,64 @@ def get_chat_messages(request, workspace_id):
 
     return JsonResponse({'messages': messages_data})
 
+
 def profile_view(request):
+    """Display user profile page"""
     return render(request, "home/profile.html")
+
 
 @login_required
 def delete_account(request):
+    """Delete user account"""
     if request.method == "POST":
         user = request.user
         logout(request)
         user.delete()
         return redirect('index')
+    return HttpResponseForbidden("Invalid request method.")
+
 
 # ============ EMAIL VERIFICATION VIEWS ============
 
 def verify_email(request, token):
-    """Verify user's email address using the token - creates actual user account"""
-    from .models import PendingUser
-
+    """Verify user's email address using the token"""
     try:
-        # Look for pending user with this token
         pending_user = PendingUser.objects.get(verification_token=token)
 
-        # Check if token expired
         if pending_user.is_expired():
             pending_user.delete()
-            messages.error(request, 'Verification link has expired. Please sign up again.')
+            messages.error(
+                request,
+                'Verification link has expired. Please sign up again.'
+            )
             return redirect('signup')
 
-        # Create the actual User account
         user = User.objects.create(
             username=pending_user.username,
             email=pending_user.email
         )
-        user.password = pending_user.password_hash  # Use pre-hashed password
+        user.password = pending_user.password_hash
         user.is_active = True
         user.save()
 
-        # Create user profile
         UserProfile.objects.create(
             user=user,
             display_name=pending_user.display_name,
-            email_verified=True,  # Already verified
+            email_verified=True,
             verification_token=''
         )
 
-        # Delete pending user
         pending_user.delete()
-
-        # Auto-login the user
         login(request, user)
 
-        messages.success(request, f'Welcome to GroupThink, {pending_user.display_name}! Your account has been created and verified.')
+        messages.success(
+            request,
+            f'Welcome to GroupThink, {pending_user.display_name}! '
+            'Your account has been created and verified.'
+        )
         return redirect('dashboard')
 
     except PendingUser.DoesNotExist:
-        # Maybe it's an old verification link for already-verified user?
         messages.error(request, 'Invalid or expired verification link.')
         return redirect('signup')
 
@@ -1086,35 +1082,28 @@ def verify_email(request, token):
 @login_required
 def resend_verification_email(request):
     """Resend verification email to the user"""
-    from django.core.mail import EmailMultiAlternatives
-    from django.template.loader import render_to_string
-    from django.conf import settings
-
     profile = request.user.profile
 
     if profile.email_verified:
         messages.info(request, 'Your email is already verified!')
         return redirect('dashboard')
 
-    # Generate new token
     verification_token = get_random_string(64)
     profile.verification_token = verification_token
     profile.save()
 
-    # Build verification link
-    verification_link = request.build_absolute_uri(f'/verify-email/{verification_token}/')
+    verification_link = request.build_absolute_uri(
+        f'/verify-email/{verification_token}/'
+    )
 
-    # Context for email templates
     context = {
         'username': request.user.username,
         'verification_link': verification_link,
     }
 
-    # Render email templates
     text_content = render_to_string('home/emails/verification_email.txt', context)
     html_content = render_to_string('home/emails/verification_email.html', context)
 
-    # Send email with both text and HTML versions
     try:
         email = EmailMultiAlternatives(
             subject='Verify your GroupThink account',
@@ -1126,7 +1115,7 @@ def resend_verification_email(request):
         email.send()
 
         messages.success(request, 'Verification email sent! Please check your inbox.')
-    except Exception as e:
-        messages.error(request, f'Failed to send email: {str(e)}')
+    except Exception as err:  # pylint: disable=broad-exception-caught
+        messages.error(request, f'Failed to send email: {str(err)}')
 
     return redirect('dashboard')
