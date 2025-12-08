@@ -12,7 +12,7 @@ cryptography
 openai>=1.0.0
 anthropic
 django-anymail
-requests==2.30.0 # For testing Dependabot, do not remove
+requests==2.32.5 # For testing Dependabot, do not remove
 django-anymail
 channels
 daphne
